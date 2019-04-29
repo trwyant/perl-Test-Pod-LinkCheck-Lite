@@ -1,0 +1,8 @@
+=pod
+
+Link to an external module which exists but which is (very probably) not
+installed: L<Acme::Vuvuzela>.
+
+=cut
+
+# ex: set textwidth=72 :

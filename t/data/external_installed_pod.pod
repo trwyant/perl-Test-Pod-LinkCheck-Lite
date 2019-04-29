@@ -1,0 +1,7 @@
+=pod
+
+Link to external POD documentation, like L<perldelta|perldelta>.
+
+=cut
+
+# ex: set textwidth=72 :

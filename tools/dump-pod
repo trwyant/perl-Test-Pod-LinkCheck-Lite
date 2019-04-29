@@ -1,0 +1,113 @@
+#!/usr/bin/env perl
+
+use 5.008;
+
+use strict;
+use warnings;
+
+use File::Spec;
+use Getopt::Long 2.33 qw{ :config auto_version };
+use Pod::Simple::SimpleTree;
+use Pod::Usage;
+use YAML;
+
+our $VERSION = '0.000_01';
+
+my %opt;
+
+GetOptions( \%opt,
+    help => sub { pod2usage( { -verbose => 2 } ) },
+) and @ARGV < 2 or pod2usage( { -verbose => 0 } );
+
+my $parser = Pod::Simple::SimpleTree->new();
+
+if ( @ARGV ) {
+    if ( my $fn = expand_module( $ARGV[0] ) ) {
+	$parser->parse_file( $fn );
+    } else {
+	$parser->parse_string_document( "=pod\n\n$ARGV[0]" );
+    }
+} else {
+    $parser->parse_file( \*STDIN );
+}
+
+if ( $parser->any_errata_seen() ) {
+    die "POD contains errors\n";
+} else {
+    print Dump( $parser->root() );
+}
+
+sub expand_module {
+    my ( $module ) = @_;
+    unless ( $module =~ m/ [^\w:] /smx ) {
+	( my $fn = $module ) =~ s| :: |/|smxg;
+	foreach my $dir ( @INC, File::Spec->curdir() ) {
+	    my $path = File::Spec->catfile( $dir, $fn );
+	    foreach my $sfx ( qw{ pod pm } ) {
+		-e "$path.$sfx"
+		    and return "$path.$sfx";
+	    }
+	}
+    }
+    -f $module
+	and return $module;
+    return;
+}
+
+__END__
+
+=head1 TITLE
+
+dump-pod - Parse POD and produce YAML dump of the parse tree
+
+=head1 SYNOPSIS
+
+ dump-pod
+ dump-pod fubar.PL
+ dump-pod 'L<foo/bar>'
+ dump-pod -help
+ dump-pod -version
+
+=head1 OPTIONS
+
+=head2 -help
+
+This option displays the documentation for this script. The script then
+exits.
+
+=head2 -version
+
+This option displays the version of this script. The script then exits.
+
+=head1 DETAILS
+
+This Perl script parses POD with
+L<Pod::Simple::SimpleTree|Pod::Simple::SimpleTree> and produces a YAML
+dump of the parse tree. The POD is specified as the only command
+argument. If that argument is the name of an extant file, that file is
+parsed. If the argument is not the name of an extant file, C<"=pod\n\n">
+is prefixed to it, and the argument itself is parsed. If no argument is
+specified, C<STDIN> is parsed.
+
+If the parse produces errors, the script dies with an uninformative
+error message.
+
+=head1 AUTHOR
+
+Thomas R. Wyant, III F<wyant at cpan dot org>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2019 by Thomas R. Wyant, III
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl 5.10.0. For more details, see the full text
+of the licenses in the directory LICENSES.
+
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=cut
+
+# ex: set textwidth=72 :
