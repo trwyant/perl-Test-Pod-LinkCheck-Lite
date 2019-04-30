@@ -17,6 +17,11 @@ use Test::Builder ();		# Core since 5.6.2
 
 our $VERSION = '0.000_001';
 
+use constant ON_DARWIN		=> 'darwin' eq $^O;
+use constant ON_VMS		=> 'VMS' eq $^O;
+use constant DOT_CPAN		=> ON_VMS ? '_cpan' : '.cpan';
+use constant DOT_CPANPLUS	=> ON_VMS ? '_cpanplus' : '.cpanplus';
+
 use constant SCALAR_REF	=> ref \0;
 
 # NOTE that new() gets us a singleton. For this reason I use
@@ -407,107 +412,108 @@ sub _get_module_index {
     }
 }
 
-# TODO cpanp, cpm. Probably not cpanm because it is so completely
+# TODO cpm. Probably not cpanm because it is so completely
 # self-contained that there appears to be no way to reach into it and
 # rummage around inside. CPANPLUS was core starting in 5.9.5, removed in
 # 5.19.0. Like CPAN, I need to figure out how to prevent it from
 # initializing itself if it is not in fact in use. No idea about
 # App::cpm yet.
+
+# NOTE that Test::Pod::LinkCheck loads CPAN and then messes with it to
+# try to prevent it from initializing itself. After trying this and
+# thinking about it, I decided to go after the metadata directly.
 sub _get_module_index_cpan {
 #   my ( $self ) = @_;
 
-    # This is probably pure paranoia, since CPAN is core.
-    _has_usable( 'CPAN' )
-	and _has_usable( 'CPAN::HandleConfig' )
-	and _has_usable( 'CPAN::Index' )
+    # This is probably pure paranoia, since Storable is core.
+    _has_usable( 'Storable' )
 	or return;
 
-    my @missing_keys;
-    my $missing_config_data = \&CPAN::HandleConfig::missing_config_data;
+    # The following code reproduces
+    # CPAN::HandleConfig::cpan_home_dir_candidates()
+    my @dir_list;
 
-    no warnings qw{ redefine };		## no critic (ProhibitNoWarnings)
+    if ( _has_usable( 'File::HomeDir', 0.52 ) ) {
+	ON_DARWIN
+	    or push @dir_list, File::HomeDir->my_data();
+	push @dir_list, File::HomeDir->my_home();
+    }
 
-    # Steal number of required-but-unspecified configuration items, and
-    # (significantly) prevent CPAN from initializing itself if it is not
-    # already initialized.
-    local *CPAN::HandleConfig::missing_config_data = sub {
-	@missing_keys = $missing_config_data->();
-	return;
-    };
+    $ENV{HOME}
+	and push @dir_list, $ENV{HOME};
+    $ENV{HOMEDRIVE}
+	and $ENV{HOMEPATH}
+	and push @dir_list, File::Spec->catpath( $ENV{HOMEDRIVE},
+	$ENV{HOMEPATH} );
+    $ENV{USERPROFILE}
+	and push @dir_list, $ENV{USERPROFILE};
+    $ENV{'SYS$LOGIN'}
+	and push @dir_list, $ENV{'SYS$LOGIN'};
 
-    # Suppress CPAN's informational messages.
-    local *STDOUT;
-    open STDOUT, '>', File::Spec->devnull();	## no critic (RequireCheckedOpen)
+    # The preceding code reproduces
+    # CPAN::HandleConfig::cpan_home_dir_candidates()
 
-    CPAN::HandleConfig->load();
+    foreach my $dir ( @dir_list ) {
+	defined $dir
+	    or next;
+	my $path = File::Spec->catfile( $dir, DOT_CPAN, 'Metadata' );
+	-e $path
+	    or next;
+	my $hash = Storable::retrieve( $path );
+	return $hash->{'CPAN::Module'};
+    }
 
-    @missing_keys
-	and return;
-
-    # Note that if there were no missing keys, the fact that we did not
-    # return them is immaterial, and the CPAN stuff should work.
-
-    # Cribbed from Test::Pod::LinkCheck
-
-    local $CPAN::Config->{use_sqlite} = 0;
-    CPAN::Index->read_metadata_cache();
-
-    return $CPAN::META->{readwrite}{'CPAN::Module'};
+    return;
 }
 
 sub _get_module_index_cpanp {
 #   my ( $self ) = @_;
 
+    # This is probably pure paranoia, since Storable is core. But
+    # CPANPLUS is not (any more) so we check it first. We have to
+    # suppress the p0ssible deprecation warning when we try to load
+    # CPANPLUS.
     {
-	local $SIG{__WARN__} = sub {};	## no deprecation warning
-	_has_usable( 'CPANPLUS::Backend' )
-	    and _has_usable( 'CPANPLUS::Internals::Utils' )
-	    and _has_usable( 'CPANPLUS::Error' )
+	local $SIG{__WARN__} = sub {};
+	_has_usable( 'CPANPLUS' )
+	    and _has_usable( 'Storable' )
 	    or return;
     }
 
-    no warnings qw{ redefine };		## no critic (ProhibitNoWarnings)
+    # The following code reproduces
+    # CPANPLUS::Internals::Utils::_home_dir, more or less
 
-    # Steal directory maker
+    my @dir_list = ( $ENV{PERL5_CPANPLUS_HOME} );
+    _has_usable( 'File::HomeDir' )	# sic: CPANPLUS specifies no version
+	and push @dir_list, File::HomeDir->my_home();
+    push @dir_list, map { $ENV{$_} } qw{ APPDATA HOME USERPROFILE WINDIR
+    SYS$LOGIN };
 
-    my @missing_dirs;
-    local *CPANPLUS::Internals::Utils::_mkdir = sub {
-	my ( undef, %arg ) = @_;
-	push @missing_dirs, $arg{dir};
-	$@ = 'CPANPLUS initialization is disabled';	## no critic (RequireLocalizedPunctuationVars)
-	return;
-    };
+    # The preceding code reproduces
+    # CPANPLUS::Internals::Utils::_home_dir, more or less
 
-    my $modinx;
+    foreach my $dir ( @dir_list ) {
+	defined $dir
+	    or next;
 
-    {
-	# Local symbol block, so that we get STDERR back after we're
-	# done with CPANPLUS, but before we return from the subroutine.
-
-	# Suppress CPANPLUS's informational messages.
-	local $CPANPLUS::Error::MSG_FH;
-	open $CPANPLUS::Error::MSG_FH, '>',	## no critic (RequireBriefOpen,RequireCheckedOpen)
-	    File::Spec->devnull();
-
-	# Suppress CPANPLUS's error messages.
-	local $CPANPLUS::Error::ERROR_FH;
-	open $CPANPLUS::Error::ERROR_FH, '>',	## no critic (RequireBriefOpen,RequireCheckedOpen)
-	    File::Spec->devnull();
-
-	# Suppress Params::Check's error messages
-	local $SIG{__WARN__} = sub {};
-
-	my $cb = CPANPLUS::Backend->new();
-
-	$modinx = $cb->module_tree();
-
+	# CPANPLUS has a complicated metadata file naming convention
+	# where the name of the file encapsulates both the version of
+	# CPANPLUS and the version of Storable. The following is from
+	# CPANPLUS::Internals::Source::Memory::__memory_storable_file()
+	# TODO handle the SQLite version.
+	my $path = File::Spec->catdir( $dir, DOT_CPANPLUS,
+	    sprintf 'sourcefiles.s%s.c%s.stored',
+	    Storable->VERSION, CPANPLUS->VERSION(),
+	);
+	-e $path
+	    or next;
+	my $hash = Storable::retrieve( $path );
+	return $hash->{'_mtree'};
     }
 
-    @missing_dirs
-	and return;
-
-    return $modinx;
+    return;
 }
+
 
 # Handle url links. This is something like L<http://...> or
 # L<...|http://...>.
