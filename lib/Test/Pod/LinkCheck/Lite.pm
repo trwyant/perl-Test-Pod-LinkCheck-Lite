@@ -87,12 +87,8 @@ sub new {
 	unless ( $loaded ) {
 	    $loaded = 1;
 	    foreach my $class ( qw{ HTTP::Tiny LWP::UserAgent } ) {
-		( my $fn = "$class.pm" ) =~ s| :: |/|smxg;
-		local $@ = undef;
-		eval {
-		    require $fn;
-		    1;
-		} or next;
+		_has_usable( $class )
+		    or next;
 		$dflt = $class;
 		return $class;
 	    }
@@ -407,17 +403,11 @@ sub _check_external_pod_info {
 sub _get_module_index_cpan {
 #   my ( $self ) = @_;
 
-    {
-	# This is probably pure paranoia, since CPAN is core.
-	local $@ = undef;
-
-	eval {
-	    require CPAN;
-	    require CPAN::HandleConfig;
-	    require CPAN::Index;
-	    1;
-	} or return;
-    }
+    # This is probably pure paranoia, since CPAN is core.
+    _has_usable( 'CPAN' )
+	and _has_usable( 'CPAN::HandleConfig' )
+	and _has_usable( 'CPAN::Index' )
+	or return;
 
     my @missing_keys;
     my $missing_config_data = \&CPAN::HandleConfig::missing_config_data;
@@ -456,15 +446,11 @@ sub _get_module_index_cpanp {
 #   my ( $self ) = @_;
 
     {
-	local $@ = undef;
-	local $SIG{__WARN__} = sub {};	# Suppress deprecation messages
-
-	eval {
-	    require CPANPLUS::Backend;
-	    require CPANPLUS::Internals::Utils;
-	    require CPANPLUS::Error;
-	    1;
-	} or return;
+	local $SIG{__WARN__} = sub {};	## no deprecation warning
+	_has_usable( 'CPANPLUS::Backend' )
+	    and _has_usable( 'CPANPLUS::Internals::Utils' )
+	    and _has_usable( 'CPANPLUS::Error' )
+	    or return;
     }
 
     no warnings qw{ redefine };		## no critic (ProhibitNoWarnings)
@@ -475,7 +461,7 @@ sub _get_module_index_cpanp {
     local *CPANPLUS::Internals::Utils::_mkdir = sub {
 	my ( undef, %arg ) = @_;
 	push @missing_dirs, $arg{dir};
-	$@ = 'CPANPLUS initialization is disabled';
+	$@ = 'CPANPLUS initialization is disabled';	## no critic (RequireLocalizedPunctuationVars)
 	return;
     };
 
@@ -487,13 +473,13 @@ sub _get_module_index_cpanp {
 
 	# Suppress CPANPLUS's informational messages.
 	local $CPANPLUS::Error::MSG_FH;
-	open $CPANPLUS::Error::MSG_FH, '>',
-	    File::Spec->devnull();	## no critic (RequireCheckedOpen)
+	open $CPANPLUS::Error::MSG_FH, '>',	## no critic (RequireBriefOpen,RequireCheckedOpen)
+	    File::Spec->devnull();
 
 	# Suppress CPANPLUS's error messages.
 	local $CPANPLUS::Error::ERROR_FH;
-	open $CPANPLUS::Error::ERROR_FH, '>',
-	    File::Spec->devnull();	## no critic (RequireCheckedOpen)
+	open $CPANPLUS::Error::ERROR_FH, '>',	## no critic (RequireBriefOpen,RequireCheckedOpen)
+	    File::Spec->devnull();
 
 	# Suppress Params::Check's error messages
 	local $SIG{__WARN__} = sub {};
@@ -541,6 +527,38 @@ sub _handle_url {
     }
     return $self->_fail(
 	"$file_name link L<$link->[1]{raw}> broken: $status_line" );
+}
+
+{
+    my %checked;
+
+    sub _has_usable {
+	my ( $module, $version ) = @_;
+
+	unless ( exists $checked{$module} ) {
+	    local $@ = undef;
+	    ( my $fn = "$module.pm" ) =~ s| :: |/|smxg;
+	    eval {
+		require $fn;
+		$checked{$module} = 1;
+		1;
+	    } or do {
+		$checked{$module} = 0;
+	    };
+	}
+
+	$checked{$module}
+	    or return;
+
+	if ( defined $version ) {
+	    my $rslt = 1;
+	    local $SIG{__DIE__} = sub { $rslt = undef };
+	    $module->VERSION( $version );
+	    return $rslt;
+	}
+
+	return 1;
+    }
 }
 
 sub _is_man_page {
