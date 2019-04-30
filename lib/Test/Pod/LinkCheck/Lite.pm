@@ -373,25 +373,38 @@ sub _check_external_pod_info {
 
     # It's not installed on this system, but it may be out there
     # somewhere
-    $self->{_cache}{uninstalled} ||=
-	$self->_get_module_index_cpanp() ||
-	$self->_get_module_index_cpan() ||
-	1;
 
+    $self->{_cache}{uninstalled} ||= $self->_get_module_index();
 
-    ref $self->{_cache}{uninstalled}
-	or return $self->_strict(
-	"$file_name Link L<$link->[1]{raw}> not checked; " .
-	'not found on this system' );
+    return $self->{_cache}{uninstalled}->( $self, $file_name, $link );
 
-    $self->{_cache}{uninstalled}{$module}
-	or return $self->_fail(
-	"$file_name link L<$link->[1]{raw}> links to unknown module" );
-    $section
-	or return 0;
-    return $self->_skip(
-	"$file_name link L<$link->[1]{raw}> not checked: " .
-	'module exists, but unable to check sections of uninstalled modules' );
+}
+
+sub _get_module_index {
+    my ( $self ) = @_;
+    if ( my $modinx = $self->_get_module_index_cpanp() ||
+	$self->_get_module_index_cpan() ) {
+	return sub {
+	    my ( $self, $file_name, $link ) = @_;
+	    my $module = $link->[1]{to};
+	    $modinx->{$module}
+		or return $self->_fail(
+		"$file_name link L<$link->[1]{raw}> links to unknown module" );
+	    $link->[1]{section}
+		or return 0;
+	    return $self->_skip(
+		"$file_name link L<$link->[1]{raw}> not checked: " .
+		'module exists, but unable to check sections of ',
+		'uninstalled modules' );
+	};
+    } else {
+	return sub {
+	    my ( $self, $file_name, $link ) = @_;
+	    return $self->_strict(
+		"$file_name link L<$link->[1]{raw}> not checked; " .
+		'not found on this system' );
+	};
+    }
 }
 
 # TODO cpanp, cpm. Probably not cpanm because it is so completely
