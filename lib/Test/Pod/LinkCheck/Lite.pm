@@ -201,34 +201,34 @@ sub ua {
 }
 
 sub _pass {
-    my ( undef, $msg ) = @_;
+    my ( undef, @msg ) = @_;
     local $Test::Builder::Level = $Test::Builder::Level + 2;
-    $TEST->ok( 1, $msg );
+    $TEST->ok( 1, join '', @msg );
     return 0;
 }
 
 sub _fail {
-    my ( undef, $msg ) = @_;
+    my ( undef, @msg ) = @_;
     local $Test::Builder::Level = $Test::Builder::Level + 2;
-    $TEST->ok( 0, $msg );
+    $TEST->ok( 0, join '', @msg );
     return 1;
 }
 
 sub _skip {
-    my ( undef, $msg ) = @_;
+    my ( undef, @msg ) = @_;
     local $Test::Builder::Level = $Test::Builder::Level + 2;
-    $TEST->skip( $msg );
+    $TEST->skip( join '', @msg );
     return 0;
 }
 
 sub _strict {
-    my ( $self, $msg ) = @_;
+    my ( $self, @msg ) = @_;
     local $Test::Builder::Level = $Test::Builder::Level + 2;
     if ( $self->{strict} ) {
-	$TEST->ok( 0, $msg );
+	$TEST->ok( 0, join '', @msg );
 	return 1;
     } else {
-	$TEST->skip( $msg );
+	$TEST->skip( join '', @msg );
 	return 0;
     }
 }
