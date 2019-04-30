@@ -171,7 +171,7 @@ sub pod_file_ok {
     }
 
     $parser->any_errata_seen()
-	and return $self->_fail( "$file_name contains POD errors" );
+	and $TEST->diag( "$file_name contains POD errors" );
 
     my $msg = "$file_name contains no broken links";
 
@@ -351,7 +351,7 @@ sub _check_external_pod_info {
 	    my $parser = Pod::Simple::SimpleTree->new();
 	    $parser->parse_file( $data->{file} );
 	    $parser->any_errata_seen()
-		and return $self->_fail(
+		and $TEST->diag(
 		"File $data->{file} contains POD errors" );
 	    $data->{section} = $self->_build_section_hash(
 		$parser->root() );

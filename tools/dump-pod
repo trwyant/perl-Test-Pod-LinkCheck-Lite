@@ -31,11 +31,7 @@ if ( @ARGV ) {
     $parser->parse_file( \*STDIN );
 }
 
-if ( $parser->any_errata_seen() ) {
-    die "POD contains errors\n";
-} else {
-    print Dump( $parser->root() );
-}
+print Dump( $parser->root() );
 
 sub expand_module {
     my ( $module ) = @_;
