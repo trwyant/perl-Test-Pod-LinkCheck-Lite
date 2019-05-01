@@ -387,8 +387,12 @@ sub _check_external_pod_info {
 
 sub _get_module_index {
     my ( $self ) = @_;
-    if ( my $modinx = $self->_get_module_index_cpanp() ||
-	$self->_get_module_index_cpan() ) {
+    my @inxes = sort { $a->[1] <=> $b->[1] }
+	$self->_get_module_index_cpanp(),
+	$self->_get_module_index_cpan(),
+	;
+    if ( @inxes ) {
+	my $modinx = $inxes[-1][0];
 	return sub {
 	    my ( $self, $file_name, $link ) = @_;
 	    my $module = $link->[1]{to};
@@ -421,9 +425,12 @@ sub _get_module_index {
 
 # In all of the module index getters, the return is either nothing at
 # all (for inability to use this indexing mechanism) or a refererence to
-# a piece of code that takes the module name as its only argument, and
-# returns a true value if that module exists and a false value
-# otherwise.
+# to an array. Element [0] of the array is a reference a piece of code
+# that takes the module name as its only argument, and returns a true
+# value if that module exists and a false value otherwise. Element [1]
+# of the array is a Perl time that is characteristic of the information
+# in the index (typically the revision date of the underlying file if
+# that's the way the index works).
 
 # NOTE that Test::Pod::LinkCheck loads CPAN and then messes with it to
 # try to prevent it from initializing itself. After trying this and
@@ -465,10 +472,14 @@ sub _get_module_index_cpan {
 	my $path = File::Spec->catfile( $dir, DOT_CPAN, 'Metadata' );
 	-e $path
 	    or next;
+	my $rev = ( stat _ )[9];
 	my $hash = Storable::retrieve( $path )
 	    or return;
 	$hash = $hash->{'CPAN::Module'};
-	return sub { return $hash->{$_[0]} };
+	return [
+	    sub { return $hash->{$_[0]} },
+	    $rev,
+	];
     }
 
     return;
@@ -515,10 +526,14 @@ sub _get_module_index_cpanp {
 	);
 	-e $path
 	    or next;
+	my $rev = ( stat _ )[9];
 	my $hash = Storable::retrieve( $path )
 	    or return;
 	$hash = $hash->{'_mtree'};
-	return sub { return $hash->{$_[0]} };
+	return [
+	    sub { return $hash->{$_[0]} },
+	    $rev,
+	];
     }
 
     return;
