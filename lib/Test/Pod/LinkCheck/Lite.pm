@@ -42,7 +42,7 @@ sub new {
 	m/ \A _default_ ( .+ ) /smx
 	    and my $code = __PACKAGE__->can( $_ )
 	    or next;
-	$dflt{$1} = $code->();
+	$dflt{$1} = $code;
     }
 
     # For the use of t/pod_file_ok.t ONLY. May be removed without
@@ -50,14 +50,16 @@ sub new {
     # L<text|module/section> will cause failures if the module is not
     # installed.
     sub __strict_is_possible {
-	return $dflt{man} && $dflt{ua} && 1;
+	my ( $class, %arg ) = @_;
+	my $self = ref $class ? $class : $class->new( %arg );
+	return $self->man() && $self->ua() && 1;
     }
 
     sub _init {
 	my ( $self, %arg ) = @_;
 	foreach my $key ( keys %dflt ) {
 	    exists $arg{$key}
-		or $arg{$key} = $dflt{$key};
+		or $arg{$key} = $dflt{$key}->();
 	}
 	foreach my $name ( keys %arg ) {
 	    if ( my $code = $self->can( "_init_$name" ) ) {
@@ -121,13 +123,13 @@ sub _init_ua {
     my $arg = $value;
     if ( defined $value ) {
 	unless ( ref $value ) {
-	    ( my $fn = "$value.pm" ) =~ s| :: |/|smxg;
-	    require $fn;
+	    _has_usable( $value )
+		or Carp::croak( "Can not load module $value" );
 	    $value = $value->new();
 	}
 	$value->can( 'head' )
 	    or Carp::croak( "$name $arg must support the head() method" );
-	$self->{ua} = $value;
+	$self->{$name} = $value;
     }
     return;
 }
