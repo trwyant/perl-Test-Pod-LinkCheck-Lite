@@ -547,7 +547,7 @@ sub _get_module_index_cpanp {
 sub _handle_url {
     my ( $self, $file_name, $link ) = @_;
 
-    $self->{ua}
+    my $ua = $self->ua()
 	or return $self->_strict(
 	"$file_name link L<$link->[1]{raw}> not checked; url checks disabled" );
 
@@ -559,20 +559,23 @@ sub _handle_url {
     # which stringifies to the content of the link. This works
     # transparantly with HTTP::Tiny, but not with LWP::UserAgent. So we
     # force stringification.
-    my $rslt = $self->{ua}->head( "$link->[1]{to}" );
+    my $rslt = $ua->head( "$link->[1]{to}" );
 
-    my $status_line;
-    if ( Scalar::Util::blessed( $rslt ) ) {
-	$rslt->is_success()
-	    and return 0;
-	$status_line = $rslt->status_line();
-    } else {
-	$rslt->{success}
-	    and return 0;
-	$status_line = "$rslt->{status} $rslt->{reason}";
-    }
+    # If $ua is an HTTP::Tiny it returns a response hash rather than a
+    # respons object. For our own convenience we bless it into
+    # _HTTP::Resp, which is intended to implement as much of the
+    # HTTP::Response interface as we actually need. The actual methods
+    # appear at the end.
+    Scalar::Util::blessed( $rslt )
+	or bless $rslt, '_HTTP::Resp';
+
+    $rslt->is_success()
+	and return 0;
+
     return $self->_fail(
-	"$file_name link L<$link->[1]{raw}> broken: $status_line" );
+	"$file_name link L<$link->[1]{raw}> broken: ",
+	$rslt->status_line(),
+    );
 }
 
 {
@@ -664,6 +667,14 @@ sub _want_sections {
 	and return;
     return $node;
 }
+
+# Here are the methods we choose to implement on our toy imitation of
+# HTTP::Response. Anything implemented MUST have the same signature and
+# semantics as the corresponding HTTP::Response method. We declare them
+# as fully-qualified subroutine names to (hopefully) avoid having the
+# tool chain believe we are supplying an actual _HTTP::Resp object.
+sub _HTTP::Resp::is_success { return $_[0]{success} }
+sub _HTTP::Resp::status_line { return "$_[0]{status} $_[0]{reason}" }
 
 1;
 
