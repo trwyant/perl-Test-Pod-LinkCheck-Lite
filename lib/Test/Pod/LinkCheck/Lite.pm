@@ -22,6 +22,7 @@ use constant ON_VMS		=> 'VMS' eq $^O;
 use constant DOT_CPAN		=> ON_VMS ? '_cpan' : '.cpan';
 use constant DOT_CPANPLUS	=> ON_VMS ? '_cpanplus' : '.cpanplus';
 
+use constant HASH_REF	=> ref {};
 use constant SCALAR_REF	=> ref \0;
 
 # NOTE that new() gets us a singleton. For this reason I use
@@ -392,6 +393,7 @@ sub _get_module_index {
     my @inxes = sort { $a->[1] <=> $b->[1] }
 	$self->_get_module_index_cpanp(),
 	$self->_get_module_index_cpan(),
+	$self->_get_module_index_cpan_meta_db(),
 	;
     if ( @inxes ) {
 	my $modinx = $inxes[-1][0];
@@ -487,6 +489,26 @@ sub _get_module_index_cpan {
     return;
 }
 
+sub _get_module_index_cpan_meta_db {
+    my ( $self ) = @_;
+
+    my $ua = $self->ua()
+	or return;
+
+    my %hash;
+
+    return [
+	sub {
+	    exists $hash{$_[0]}
+		and return $hash{$_[0]};
+	    my $resp = _request( $ua, head =>
+		"https://cpanmetadb.plackperl.org/v1.0/package/$_[0]" );
+	    return ( $hash{$_[0]} = $resp->is_success() );
+	},
+	time - 86400,
+    ];
+}
+
 sub _get_module_index_cpanp {
 #   my ( $self ) = @_;
 
@@ -541,7 +563,6 @@ sub _get_module_index_cpanp {
     return;
 }
 
-
 # Handle url links. This is something like L<http://...> or
 # L<...|http://...>.
 sub _handle_url {
@@ -555,26 +576,14 @@ sub _handle_url {
 	or return $self->_fail(
 	    "$file_name link L<$link->[1]{raw} contains no url" );
 
-    # NOTE that the URL is actually a Pod::Simple::LinkSection object,
-    # which stringifies to the content of the link. This works
-    # transparantly with HTTP::Tiny, but not with LWP::UserAgent. So we
-    # force stringification.
-    my $rslt = $ua->head( "$link->[1]{to}" );
+    my $resp = _request( $ua, head => $link->[1]{to} );
 
-    # If $ua is an HTTP::Tiny it returns a response hash rather than a
-    # respons object. For our own convenience we bless it into
-    # _HTTP::Resp, which is intended to implement as much of the
-    # HTTP::Response interface as we actually need. The actual methods
-    # appear at the end.
-    Scalar::Util::blessed( $rslt )
-	or bless $rslt, '_HTTP::Resp';
-
-    $rslt->is_success()
+    $resp->is_success()
 	and return 0;
 
     return $self->_fail(
 	"$file_name link L<$link->[1]{raw}> broken: ",
-	$rslt->status_line(),
+	$resp->status_line(),
     );
 }
 
@@ -650,6 +659,25 @@ sub _is_perl_file {
 	    map { $_ => 1 } @B::Keywords::Functions, @B::Keywords::Barewords };
 	return $bareword->{$word};
     }
+}
+
+# Do a web request. The arguments are the user agent, the request
+# method, and the URL. The return is the response object.
+sub _request {
+    my ( $ua, $method, $url ) = @_;
+
+    # The $url may be an object that stringifies to the desired URL.
+    # This is OK with HTTP::Tiny, but not with LWP::UserAgent. So we
+    # force stringification.
+    my $resp = $ua->$method( "$url" );
+
+    # HTTP::Tiny returns an unblessed hash. If that's what we get we
+    # bless it into a private class with the HTTP::Response methods we
+    # need.
+    HASH_REF eq ref $resp
+	and bless $resp, '_HTTP::Resp';
+
+    return $resp;
 }
 
 sub _want_links {
