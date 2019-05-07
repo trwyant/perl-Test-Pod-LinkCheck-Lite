@@ -101,6 +101,17 @@ foreach my $ua ( @ua ) {
     $t->pod_file_ok( 't/data/url_links.pod' );
 }
 
+foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	module_index	=> $mi,
+	strict		=> $ENV{AUTHOR_TESTING},
+    );
+
+    note "Test with module_index => $mi";
+
+    $t->pod_file_ok( 't/data/external_uninstalled.pod' );
+}
+
 done_testing;
 
 1;

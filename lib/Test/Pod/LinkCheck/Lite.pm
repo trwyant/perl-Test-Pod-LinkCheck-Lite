@@ -22,12 +22,14 @@ use constant ON_VMS		=> 'VMS' eq $^O;
 use constant DOT_CPAN		=> ON_VMS ? '_cpan' : '.cpan';
 use constant DOT_CPANPLUS	=> ON_VMS ? '_cpanplus' : '.cpanplus';
 
+use constant ARRAY_REF	=> ref [];
 use constant HASH_REF	=> ref {};
 use constant SCALAR_REF	=> ref \0;
 
-# NOTE that new() gets us a singleton. For this reason I use
-# $Test::Builder::Level (localized) to get tests reported relative to
-# the correct file and line, rather than setting the 'level' attribute.
+# NOTE that Test::Builder->new() gets us a singleton. For this reason I
+# use $Test::Builder::Level (localized) to get tests reported relative
+# to the correct file and line, rather than setting the 'level'
+# attribute.
 my $TEST = Test::Builder->new();
 
 sub new {
@@ -47,9 +49,7 @@ sub new {
     }
 
     # For the use of t/pod_file_ok.t ONLY. May be removed without
-    # notice. NOTE that if 'strict' is true, links of the form
-    # L<text|module/section> will cause failures if the module is not
-    # installed.
+    # notice.
     sub __strict_is_possible {
 	my ( $class, %arg ) = @_;
 	my $self = ref $class ? $class : $class->new( %arg );
@@ -88,6 +88,18 @@ sub new {
     }
 }
 
+sub _default_module_index {
+    my @handlers;
+    foreach ( keys %Test::Pod::LinkCheck::Lite:: ) {
+	m/ \A _get_module_index_ ( .+ ) /smx
+	    and __PACKAGE__->can( $_ )
+	    or next;
+	push @handlers, $1;
+    }
+    @handlers = sort @handlers;
+    return \@handlers;
+}
+
 {
     my $dflt;
     my $loaded;
@@ -113,10 +125,32 @@ sub _init_man {
     return;
 }
 
+sub _init_module_index {
+    my ( $self, $name, $value ) = @_;
+    my @val = map { split qr{ \s* , \s* }smx } ARRAY_REF eq ref $value ?
+    @{ $value } : $value;
+    my @handlers;
+    foreach my $mi ( @val ) {
+	my $code = $self->can( "_get_module_index_$mi" )
+	    or Carp::croak( "Invalid module_index value '$mi'" );
+	push @handlers, $code;
+    }
+    $self->{$name} = \@val;
+    $self->{"_$name"} = \@handlers;
+    return;
+}
+
 sub _init_strict {
     my ( $self, $name, $value ) = @_;
     $self->{$name} = $value ? 1 : 0;
     return;
+}
+
+sub _process_array_argument {
+    my ( $arg ) = @_;
+    ARRAY_REF eq ref $arg
+	or $arg = [ $arg ];
+    return [ map { split qr< \s*, \s* >smx } @{ $arg } ];
 }
 
 sub _init_ua {
@@ -155,6 +189,14 @@ sub all_pod_files_ok {
 sub man {
     my ( $self ) = @_;
     return $self->{man};
+}
+
+sub module_index {
+    my ( $self ) = @_;
+    wantarray
+	and return @{ $self->{module_index} };
+    local $" = ',';
+    return "@{ $self->{module_index} }";
 }
 
 sub pod_file_ok {
@@ -391,10 +433,7 @@ sub _check_external_pod_info {
 sub _get_module_index {
     my ( $self ) = @_;
     my @inxes = sort { $a->[1] <=> $b->[1] }
-	$self->_get_module_index_cpanp(),
-	$self->_get_module_index_cpan(),
-	$self->_get_module_index_cpan_meta_db(),
-	;
+	map { $_->( $self ) } @{ $self->{_module_index} };
     if ( @inxes ) {
 	my $modinx = $inxes[-1][0];
 	return sub {
@@ -419,13 +458,6 @@ sub _get_module_index {
 	};
     }
 }
-
-# TODO cpm. Probably not cpanm because it is so completely
-# self-contained that there appears to be no way to reach into it and
-# rummage around inside. CPANPLUS was core starting in 5.9.5, removed in
-# 5.19.0. Like CPAN, I need to figure out how to prevent it from
-# initializing itself if it is not in fact in use. No idea about
-# App::cpm yet.
 
 # In all of the module index getters, the return is either nothing at
 # all (for inability to use this indexing mechanism) or a refererence to
@@ -505,7 +537,7 @@ sub _get_module_index_cpan_meta_db {
 		"https://cpanmetadb.plackperl.org/v1.0/package/$_[0]" );
 	    return ( $hash{$_[0]} = $resp->is_success() );
 	},
-	time - 86400,
+	time - 86400 * 7,
     ];
 }
 
@@ -742,7 +774,9 @@ This module shells out only to check C<man> links.
 
 That is, a skipped test is generated for each.
 L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> appears to fail the link in
-at least some such cases.
+at least some such cases. You can get closer to the
+L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> behaviour by setting
+C<< strict => 1 >> when you call L<new()|/new>.
 
 =item URL links are checked
 
@@ -801,8 +835,27 @@ section name is valid.
 =item Uninstalled modules
 
 These are checked against F<modules/02packages.details.txt.gz>, provided
-that can be found. Currently this only works if the C<CPAN> client is
-configured. Sections can not be checked.
+that (or some reasonable facsimile) can be found. Currently we can look
+for this information in the following places:
+
+=over
+
+=item File F<Metadata> in the directory used by the C<CPAN> client;
+
+=item File F<sourcefiles.s*.c*.stored> in the directory used by the
+C<CPANPLUS> client. The two wildcards represent the version numbers of
+L<Storable|Storable> and L<CPANPLUS|CPANPLUS> respectively.
+
+=item Website L<https://cpanmetadb.plackperl.org/>, a.k.a. the CPAN Meta
+DB.
+
+=back
+
+If more than one of these is configured (by default they all are), we
+look in the newest one.
+
+Sections can not be checked. If a link to a valid (but uninstalled)
+module has a section, a skipped test is generated.
 
 =back
 
@@ -837,6 +890,35 @@ This Boolean argument is true if C<man> links are to be checked, and
 false if not. The default is the value of C<IPC::Cmd::can_run( 'man' )>.
 If this returns false a warning is generated, and C<man> links are not
 checked.
+
+=item module_index
+
+This argument specifies a list of module indices to consult, as either a
+comma-delimited string or an array reference. Even if specified a given
+index will only be used if it is actually available for use. If more
+than one index is found, the most-recently-updated index will be used.
+Possible indices are:
+
+=over
+
+=item cpan
+
+Use the module index found in the L<CPAN|CPAN> working directory.
+
+=item cpanp
+
+Use the module index found in the L<CPANPLUS|CPANPLUS> working
+directory.
+
+=item cpan_meta_db
+
+Use the CPAN Meta database. Because this is an on-line index it is
+considered to be current, but its as-of time is offset to favor local
+indices.
+
+=back
+
+By default all indices are considered.
 
 =item strict
 
@@ -889,6 +971,13 @@ is the recommended usage.
  $t->man() and say 'man links are checked';
 
 This method returns the value of the C<'man'> attribute.
+
+=head2 module_index
+
+ say 'Module indices: ', join $self->module_index();
+
+This method returns the value of the C<'module_index'> attribute. If
+called in scalar context it returns a comma-delimited string.
 
 =head2 pod_file_ok
 
