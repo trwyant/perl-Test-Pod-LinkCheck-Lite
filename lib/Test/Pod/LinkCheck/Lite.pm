@@ -19,8 +19,13 @@ our $VERSION = '0.000_001';
 
 use constant ON_DARWIN		=> 'darwin' eq $^O;
 use constant ON_VMS		=> 'VMS' eq $^O;
-use constant DOT_CPAN		=> ON_VMS ? '_cpan' : '.cpan';
-use constant DOT_CPANPLUS	=> ON_VMS ? '_cpanplus' : '.cpanplus';
+
+our $DIRECTORY_LEADER;	# FOR TESTING ONLY -- may be retracted without notice
+defined $DIRECTORY_LEADER
+    or $DIRECTORY_LEADER = ON_VMS ? '_' : '.';
+
+my $DOT_CPAN		= "${DIRECTORY_LEADER}cpan";
+my $DOT_CPANPLUS	= "${DIRECTORY_LEADER}cpanplus";
 
 use constant ARRAY_REF	=> ref [];
 use constant HASH_REF	=> ref {};
@@ -174,6 +179,7 @@ sub all_pod_files_ok {
     @dir
 	or push @dir, 'blib';
     my $errors = 0;
+
     File::Find::find( {
 	    no_chdir	=> 1,
 	    wanted	=> sub {
@@ -252,28 +258,28 @@ sub ua {
 
 sub _pass {
     my ( undef, @msg ) = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + 2;
+    local $Test::Builder::Level = $Test::Builder::Level + _nest_depth();
     $TEST->ok( 1, join '', @msg );
     return 0;
 }
 
 sub _fail {
     my ( undef, @msg ) = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + 2;
+    local $Test::Builder::Level = $Test::Builder::Level + _nest_depth();
     $TEST->ok( 0, join '', @msg );
     return 1;
 }
 
 sub _skip {
     my ( undef, @msg ) = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + 2;
+    local $Test::Builder::Level = $Test::Builder::Level + _nest_depth();
     $TEST->skip( join '', @msg );
     return 0;
 }
 
 sub _strict {
     my ( $self, @msg ) = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + 2;
+    local $Test::Builder::Level = $Test::Builder::Level + _nest_depth();
     if ( $self->{strict} ) {
 	$TEST->ok( 0, join '', @msg );
 	return 1;
@@ -505,7 +511,7 @@ sub _get_module_index_cpan {
     foreach my $dir ( @dir_list ) {
 	defined $dir
 	    or next;
-	my $path = File::Spec->catfile( $dir, DOT_CPAN, 'Metadata' );
+	my $path = File::Spec->catfile( $dir, $DOT_CPAN, 'Metadata' );
 	-e $path
 	    or next;
 	my $rev = ( stat _ )[9];
@@ -576,7 +582,7 @@ sub _get_module_index_cpanp {
 	# CPANPLUS and the version of Storable. The following is from
 	# CPANPLUS::Internals::Source::Memory::__memory_storable_file()
 	# TODO handle the SQLite version.
-	my $path = File::Spec->catdir( $dir, DOT_CPANPLUS,
+	my $path = File::Spec->catdir( $dir, $DOT_CPANPLUS,
 	    sprintf 'sourcefiles.s%s.c%s.stored',
 	    Storable->VERSION, CPANPLUS->VERSION(),
 	);
@@ -691,6 +697,12 @@ sub _is_perl_file {
 	    map { $_ => 1 } @B::Keywords::Functions, @B::Keywords::Barewords };
 	return $bareword->{$word};
     }
+}
+
+sub _nest_depth {
+    my $nest = 0;
+    $nest++ while __PACKAGE__ eq ( caller $nest )[0];
+    return $nest;
 }
 
 # Do a web request. The arguments are the user agent, the request

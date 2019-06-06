@@ -5,11 +5,53 @@ use 5.008;
 use strict;
 use warnings;
 
-use Test::Pod::LinkCheck::Lite;
 use Test::More 0.88;	# Because of done_testing();
 
-use constant STRICT_IS_POSSIBLE	=>
+# This mess is because if Devel::Hide or Test::Without::Module is
+# specified on the command line or in an enclosing file, a straight
+# 'use lib qw{ inc/Mock }' would trump it, and the mocked modules would
+# still be loaded. With this mess, the command-line version is
+# $ perl -Mlib=inc/Mock -MDevel::Hide=HTTP::Tiny,LWP::UserAgent ...,
+# and the 'use if' sees inc/Mock already in @INC and does not add it
+# again.  'use if' is core as of 5.6.2, so I should be OK unless I run
+# into some Linux packager who knows better than the Perl Porters what
+# should be in core (and yes, they exist).
+
+use constant CODE_REF	=> ref sub {};
+
+{
+    my $inx = 0;
+    OUTER_LOOP: {
+	while ( $inx < @INC ) {
+	    CODE_REF eq ref $INC[$inx++]
+		and last OUTER_LOOP;
+	}
+	$inx = 0;
+    }
+    splice @INC, $inx, 0, 'inc/Mock';
+}
+
+
+{
+    no warnings qw{ once };
+
+    local $Test::Pod::LinkCheck::Lite::DIRECTORY_LEADER = '_';
+    require Test::Pod::LinkCheck::Lite;
+
+    require Storable;	# Core, so should always have
+    eval {
+	require CPANPLUS;	# Mocked
+
+	$Storable::VERSION = 42;	# For ease of testing CPANPLUS
+	$CPANPLUS::VERSION = 42;	# For ease of testing CPANPLUS
+    };
+}
+
+my $STRICT_IS_POSSIBLE	=
     Test::Pod::LinkCheck::Lite->__strict_is_possible();
+
+
+note '$STRICT_IS_POSSIBLE is ', $STRICT_IS_POSSIBLE ? 'true' : 'false';
 
 my @ua = ( undef );
 {
@@ -25,8 +67,11 @@ my @ua = ( undef );
 }
 
 {
+    local $ENV{HOME} = 't/data';
+    local $ENV{PERL5_CPANPLUS_HOME} = 't/data';
+
     my $t = Test::Pod::LinkCheck::Lite->new(
-	strict	=> STRICT_IS_POSSIBLE,
+	strict	=> $STRICT_IS_POSSIBLE,
     );
 
     $t->pod_file_ok( \'' );
@@ -91,17 +136,35 @@ my @ua = ( undef );
 
 foreach my $ua ( @ua ) {
     my $t = Test::Pod::LinkCheck::Lite->new(
-	strict	=> STRICT_IS_POSSIBLE && $ua,
+	strict	=> $STRICT_IS_POSSIBLE,
 	ua	=> $ua,
     );
 
     note 'Test with explicitly-specified ua => ',
 	defined $ua ? "'$ua'" : 'undef';
 
-    $t->pod_file_ok( 't/data/url_links.pod' );
+    if ( $ua ) {
+	$t->pod_file_ok( 't/data/url_links.pod' );
+    } else {
+	my $errors;
+
+	TODO: {
+	    local $TODO = $STRICT_IS_POSSIBLE ?
+		'Deliberate test failures.' : undef;
+	    $errors = $t->pod_file_ok(
+		't/data/url_links.pod' );
+	}
+
+	cmp_ok $errors, '==', $STRICT_IS_POSSIBLE ? 1 : 0,
+	    't/data/url_links.pod error count with web checks disabled';
+    }
 }
 
 foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
+
+    local $ENV{HOME} = 't/data';
+    local $ENV{PERL5_CPANPLUS_HOME} = 't/data';
+
     my $t = Test::Pod::LinkCheck::Lite->new(
 	module_index	=> $mi,
 	strict		=> $ENV{AUTHOR_TESTING},

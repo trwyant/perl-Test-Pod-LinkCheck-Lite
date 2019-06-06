@@ -1,7 +1,7 @@
 =pod
 
 Link to an external module which exists but which is (very probably) not
-installed: L<Acme::Vuvuzela>.
+installed: L<Invalid module|Invalid module>.
 
 =cut
 

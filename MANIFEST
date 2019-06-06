@@ -1,6 +1,9 @@
 Build.PL
 Changes
 eg/test-pod
+inc/Mock/CPANPLUS.pm
+inc/Mock/HTTP/Tiny.pm
+inc/Mock/LWP/UserAgent.pm
 inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
 lib/Test/Pod/LinkCheck/Lite.pm
@@ -12,6 +15,9 @@ META.json
 META.yml
 README
 t/basic.t
+t/data/_cpan/Metadata
+t/data/_cpanplus/sourcefiles.s42.c42.stored
+t/data/_http/status
 t/data/empty.pod
 t/data/external_builtin.pod
 t/data/external_installed.pod
