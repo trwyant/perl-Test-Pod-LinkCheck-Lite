@@ -6,6 +6,8 @@ inc/Mock/HTTP/Tiny.pm
 inc/Mock/LWP/UserAgent.pm
 inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
+inc/My/Module/Recommend.pm
+inc/My/Module/Recommend/Any.pm
 lib/Test/Pod/LinkCheck/Lite.pm
 LICENSES/Artistic
 LICENSES/Copying
@@ -31,6 +33,7 @@ t/data/man.pod
 t/data/no_links.pod
 t/data/url_links.pod
 t/pod_file_ok.t
+xt/author/basic.t
 xt/author/changes.t
 xt/author/critic.t
 xt/author/executable.t

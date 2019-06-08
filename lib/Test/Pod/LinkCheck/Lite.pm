@@ -552,7 +552,7 @@ sub _get_module_index_cpanp {
 
     # This is probably pure paranoia, since Storable is core. But
     # CPANPLUS is not (any more) so we check it first. We have to
-    # suppress the p0ssible deprecation warning when we try to load
+    # suppress the possible deprecation warning when we try to load
     # CPANPLUS.
     {
 	local $SIG{__WARN__} = sub {};
@@ -683,7 +683,7 @@ sub _is_perl_file {
 	and return 1;
     open my $fh, '<', $path
 	or return;
-    local $_ = <$fh>;
+    local $_ = <$fh> || '';
     close $fh;
     return m/ perl /smx;
 }
@@ -699,10 +699,17 @@ sub _is_perl_file {
     }
 }
 
-sub _nest_depth {
-    my $nest = 0;
-    $nest++ while __PACKAGE__ eq ( caller $nest )[0];
-    return $nest;
+{
+    my %ignore;
+    BEGIN {
+	%ignore = map { $_ => 1 } __PACKAGE__, qw{ DB };
+    }
+
+    sub _nest_depth {
+	my $nest = 0;
+	$nest++ while $ignore{ caller( $nest ) || '' };
+	return $nest;
+    }
 }
 
 # Do a web request. The arguments are the user agent, the request

@@ -7,7 +7,8 @@ use Module::Build;
 our @ISA = qw{ Module::Build };
 
 use Carp;
-
+# use lib 'inc';	# Already done because this module is running.
+use My::Module::Recommend;
 
 sub ACTION_authortest {
     my ( $self, @args ) = @_;
@@ -15,7 +16,9 @@ sub ACTION_authortest {
     local $ENV{AUTHOR_TESTING} = 1;
 
     $self->depends_on( 'build' );
-    $self->test_files( qw{ t xt/author } );
+    $self->test_files( qw{ t xt/author },
+	My::Module::Recommend->make_optional_modules_tests(),
+    );
     $self->depends_on( 'test' );
 
     return;

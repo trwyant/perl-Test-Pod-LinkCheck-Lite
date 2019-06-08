@@ -67,7 +67,15 @@ sub requires {
 ##  if ( ! $self->distribution() ) {
 ##  }
     return +{
-	'Carp'		=> 0,
+	'B::Keywords'	=> 0,
+	'Carp'	=> 0,
+	'File::Find'	=> 0,
+	'File::Spec;'	=> 0,
+	'IPC::Cmd'	=> 0,
+	'Pod::Perldoc'	=> 0,
+	'Pod::Simple::SimpleTree'	=> 0,
+	'Scalar::Util'	=> 0,
+	'Test::Builder'	=> 0,
 	strict		=> 0,
 	warnings	=> 0,
 	@extra,

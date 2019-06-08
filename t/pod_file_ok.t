@@ -167,7 +167,7 @@ foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
 
     my $t = Test::Pod::LinkCheck::Lite->new(
 	module_index	=> $mi,
-	strict		=> $ENV{AUTHOR_TESTING},
+	strict		=> $STRICT_IS_POSSIBLE,
     );
 
     note "Test with module_index => $mi";
