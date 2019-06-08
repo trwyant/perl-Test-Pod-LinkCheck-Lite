@@ -11,7 +11,7 @@ use Test::More 0.88;	# Because of done_testing();
 # specified on the command line or in an enclosing file, a straight
 # 'use lib qw{ inc/Mock }' would trump it, and the mocked modules would
 # still be loaded. With this mess, the command-line version is
-# $ perl -Mlib=inc/Mock -MDevel::Hide=HTTP::Tiny,LWP::UserAgent ...,
+# $ perl -Mlib=inc/Mock -MDevel::Hide=HTTP::Tiny ...,
 # and the 'use if' sees inc/Mock already in @INC and does not add it
 # again.  'use if' is core as of 5.6.2, so I should be OK unless I run
 # into some Linux packager who knows better than the Perl Porters what
@@ -53,18 +53,7 @@ my $STRICT_IS_POSSIBLE	=
 
 note '$STRICT_IS_POSSIBLE is ', $STRICT_IS_POSSIBLE ? 'true' : 'false';
 
-my @ua = ( undef );
-{
-    local $@ = undef;
-    eval {
-	require HTTP::Tiny;
-	push @ua, 'HTTP::Tiny';
-    };
-    eval {
-	require LWP::UserAgent;
-	push @ua, 'LWP::UserAgent';
-    };
-}
+my @ua = ( undef, 'HTTP::Tiny' );
 
 {
     local $ENV{HOME} = 't/data';

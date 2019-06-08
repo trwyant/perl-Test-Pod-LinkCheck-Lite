@@ -20,7 +20,7 @@ my %args = (
     'dist' => {COMPRESS => 'gzip', SUFFIX => 'gz'},
     AUTHOR => 'Thomas R. Wyant, III F<wyant at cpan dot org>',
     ABSTRACT => 'Test non-URL POD links',
-    realclean	=> { FILES => 'cover_db xt/author/optionals' },
+    realclean	=> { FILES => 'cover_db' },
 );
 
 $mmv >= 6.31
@@ -56,10 +56,9 @@ sub MY::postamble {
 
     return <<"EOD";
 
-AUTHORTEST_FILES = t/*.t xt/author/*.t xt/author/optionals/*.t
+AUTHORTEST_FILES = t/*.t xt/author/*.t
 
 authortest :: pure_all
-	\$(FULLPERLRUN) "-Iinc" "-MMy::Module::Recommend" "-e" "My::Module::Recommend->make_optional_modules_tests()"
 	AUTHOR_TESTING=1 $authortest
 
 testcover :: pure_all

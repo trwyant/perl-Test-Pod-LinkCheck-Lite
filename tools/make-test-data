@@ -159,8 +159,8 @@ metadata file.
 
 This needs to be done before loading
 L<Test::Pod::LinkCheck::Lite|Test::Pod::LinkCheck::Lite>, and is
-necessary so that the mock versions of L<HTTP::Tiny|HTTP::Tiny> and
-L<LWP::UserAgent|LWP::UserAgent> will be loaded.
+necessary so that the mock version of L<HTTP::Tiny|HTTP::Tiny> will be
+loaded.
 
 =back
 

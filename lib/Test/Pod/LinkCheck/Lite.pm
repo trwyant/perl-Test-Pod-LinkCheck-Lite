@@ -9,10 +9,12 @@ use B::Keywords ();		# Not core
 use Carp ();			# Core since 5.0
 use File::Find ();		# Core since 5.0
 use File::Spec;			# Core since 5.4.5
+use HTTP::Tiny;			# Core since 5.13.9
 use IPC::Cmd ();		# Core since 5.9.5
 use Pod::Perldoc ();		# Core since 5.8.1
 use Pod::Simple::SimpleTree ();	# Not core
 use Scalar::Util ();		# Core since 5.7.3
+use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
 
 our $VERSION = '0.000_001';
@@ -105,23 +107,8 @@ sub _default_module_index {
     return \@handlers;
 }
 
-{
-    my $dflt;
-    my $loaded;
-    sub _default_ua {
-	unless ( $loaded ) {
-	    $loaded = 1;
-	    foreach my $class ( qw{ HTTP::Tiny LWP::UserAgent } ) {
-		_has_usable( $class )
-		    or next;
-		$dflt = $class;
-		return $class;
-	    }
-	    $TEST->diag(
-		'Can not check urls; neither HTTP::Tiny nor LWP::UserAgent available' );
-	}
-	return $dflt;
-    }
+sub _default_ua {
+    return 'HTTP::Tiny';
 }
 
 sub _init_man {
@@ -160,15 +147,14 @@ sub _process_array_argument {
 
 sub _init_ua {
     my ( $self, $name, $value ) = @_;
-    my $arg = $value;
     if ( defined $value ) {
-	unless ( ref $value ) {
-	    _has_usable( $value )
-		or Carp::croak( "Can not load module $value" );
-	    $value = $value->new();
+	local $@ = undef;
+	eval {
+	    $value->isa( 'HTTP::Tiny' )
 	}
-	$value->can( 'head' )
-	    or Carp::croak( "$name $arg must support the head() method" );
+	    or Carp::Croak( "Ua attribute $value must be an HTTP::Tiny" );
+	ref $value
+	    or $value = $value->new();
 	$self->{$name} = $value;
     }
     return;
@@ -258,28 +244,28 @@ sub ua {
 
 sub _pass {
     my ( undef, @msg ) = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + _nest_depth();
+    local $Test::Builder::Level = _nest_depth();
     $TEST->ok( 1, join '', @msg );
     return 0;
 }
 
 sub _fail {
     my ( undef, @msg ) = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + _nest_depth();
+    local $Test::Builder::Level = _nest_depth();
     $TEST->ok( 0, join '', @msg );
     return 1;
 }
 
 sub _skip {
     my ( undef, @msg ) = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + _nest_depth();
+    local $Test::Builder::Level =  _nest_depth();
     $TEST->skip( join '', @msg );
     return 0;
 }
 
 sub _strict {
     my ( $self, @msg ) = @_;
-    local $Test::Builder::Level = $Test::Builder::Level + _nest_depth();
+    local $Test::Builder::Level = _nest_depth();
     if ( $self->{strict} ) {
 	$TEST->ok( 0, join '', @msg );
 	return 1;
@@ -480,10 +466,6 @@ sub _get_module_index {
 sub _get_module_index_cpan {
 #   my ( $self ) = @_;
 
-    # This is probably pure paranoia, since Storable is core.
-    _has_usable( 'Storable' )
-	or return;
-
     # The following code reproduces
     # CPAN::HandleConfig::cpan_home_dir_candidates()
     my @dir_list;
@@ -539,9 +521,9 @@ sub _get_module_index_cpan_meta_db {
 	sub {
 	    exists $hash{$_[0]}
 		and return $hash{$_[0]};
-	    my $resp = _request( $ua, head =>
+	    my $resp = $ua->head(
 		"https://cpanmetadb.plackperl.org/v1.0/package/$_[0]" );
-	    return ( $hash{$_[0]} = $resp->is_success() );
+	    return ( $hash{$_[0]} = $resp->{success} );
 	},
 	time - 86400 * 7,
     ];
@@ -550,14 +532,12 @@ sub _get_module_index_cpan_meta_db {
 sub _get_module_index_cpanp {
 #   my ( $self ) = @_;
 
-    # This is probably pure paranoia, since Storable is core. But
-    # CPANPLUS is not (any more) so we check it first. We have to
+    # CPANPLUS is no longer core, so we have to check. We have to
     # suppress the possible deprecation warning when we try to load
     # CPANPLUS.
     {
 	local $SIG{__WARN__} = sub {};
 	_has_usable( 'CPANPLUS' )
-	    and _has_usable( 'Storable' )
 	    or return;
     }
 
@@ -614,14 +594,14 @@ sub _handle_url {
 	or return $self->_fail(
 	    "$file_name link L<$link->[1]{raw} contains no url" );
 
-    my $resp = _request( $ua, head => $link->[1]{to} );
+    my $resp = $ua->head( $link->[1]{to} );
 
-    $resp->is_success()
+    $resp->{success}
 	and return 0;
 
     return $self->_fail(
 	"$file_name link L<$link->[1]{raw}> broken: ",
-	$resp->status_line(),
+	"$resp->{status} $resp->{reason}",
     );
 }
 
@@ -712,25 +692,6 @@ sub _is_perl_file {
     }
 }
 
-# Do a web request. The arguments are the user agent, the request
-# method, and the URL. The return is the response object.
-sub _request {
-    my ( $ua, $method, $url ) = @_;
-
-    # The $url may be an object that stringifies to the desired URL.
-    # This is OK with HTTP::Tiny, but not with LWP::UserAgent. So we
-    # force stringification.
-    my $resp = $ua->$method( "$url" );
-
-    # HTTP::Tiny returns an unblessed hash. If that's what we get we
-    # bless it into a private class with the HTTP::Response methods we
-    # need.
-    HASH_REF eq ref $resp
-	and bless $resp, '_HTTP::Resp';
-
-    return $resp;
-}
-
 sub _want_links {
     my ( undef, $node ) = @_;
     'L' eq $node->[0]
@@ -746,14 +707,6 @@ sub _want_sections {
 	and return;
     return $node;
 }
-
-# Here are the methods we choose to implement on our toy imitation of
-# HTTP::Response. Anything implemented MUST have the same signature and
-# semantics as the corresponding HTTP::Response method. We declare them
-# as fully-qualified subroutine names to (hopefully) avoid having the
-# tool chain believe we are supplying an actual _HTTP::Resp object.
-sub _HTTP::Resp::is_success { return $_[0]{success} }
-sub _HTTP::Resp::status_line { return "$_[0]{status} $_[0]{reason}" }
 
 1;
 
@@ -955,14 +908,12 @@ The default is false.
 =item ua
 
 This argument is the user agent to be used to check C<url> links, or the
-name of the user agent class. The default is C<'HTTP::Tiny'> if that can
-be loaded, or C<'LWP::UserAgent'> if that can be loaded. If neither is
-present a warning is generated and C<url> links are not checked.
+name of the user agent class. The default is C<'HTTP::Tiny'>.
 
 If an actual object is passed, it must support the C<head()> method,
 which must return either an L<HTTP::Response|HTTP::Response> or
 equivalent object, or a hash containing keys C<{success}>, C<{status}>,
-and C<{reason}>.
+and C<{reason}> (i.e. a hash compatible with L<HTTP::Tiny|HTTP::Tiny>).
 
 If you want to disable C<url> checking, specify this argument with value
 C<undef>.

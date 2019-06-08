@@ -12,16 +12,17 @@ use Test::Pod::LinkCheck::Lite;
 
 our $VERSION = '0.000_001';
 
-my %opt;
+my %opt = (
+    web	=> 1,
+);
 
 GetOptions( \%opt,
-    qw{ man! ua=s },
+    qw{ man! web! },
     help => sub { pod2usage( { -verbose => 2 } ) },
 ) and 1 >= @ARGV or pod2usage( { -verbose => 0 } );
 
-exists $opt{ua}
-    and 'undef' eq $opt{ua}
-    and $opt{ua} = undef;
+delete $opt{web}
+    or $opt{ua} = undef;
 
 my $tp = Test::Pod::LinkCheck::Lite->new( %opt );
 
@@ -64,13 +65,14 @@ links will not be tested.
 The default is true if the host system has a C<man> command, and false
 otherwise.
 
-=head2 -ua
+=head2 -web
 
- -ua LWP::UserAgent
+This Boolean option specifies that World Wide Web access is allowed. If
+disallowed, URL links are  not checked, and the CPAN Meta database is
+not considered when trying to check links to ininstalled modules.
 
-This option specifies the user agent to use on C<url> links. The default
-is the first of L<HTTP::Tiny|HTTP::Tiny> or
-L<LWP::UserAgent|LWP::UserAgent> that can be loaded.
+The default is C<-web>, but this option can be negated by specifying
+C<-noweb>.
 
 =head2 -version
 
