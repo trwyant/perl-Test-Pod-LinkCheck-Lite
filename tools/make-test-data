@@ -13,8 +13,6 @@ use Storable qw{ nstore };
 our $VERSION = '0.000_01';
 
 use constant CPAN_INDEX	=> 't/data/_cpan/Metadata';
-use constant CPANPLUS_INDEX	=>
-    't/data/_cpanplus/sourcefiles.s42.c42.stored';
 
 my %opt;
 
@@ -25,7 +23,6 @@ GetOptions( \%opt,
 
 my %index = (
     'Acme::Vuvuzela'		=> 1,
-    'CPANPLUS'			=> 1,
     'Invalid module'		=> 1,
     'Test::Pod::LinkCheck'	=> 1,
     'Test::Pod::Links'		=> 1,
@@ -37,7 +34,6 @@ chdir 't/data'
 
 foreach my $info (
     [ qw{ _cpan Metadata CPAN::Module } ],
-    [ qw{ _cpanplus sourcefiles.s42.c42.stored _mtree } ],
 ) {
     my ( $dir, $fn, $key ) = @{ $info };
     -d $dir
@@ -117,11 +113,6 @@ The files produced are:
 This is a L<CPAN|CPAN>-format metadata file containing B<only> the
 module index entries necessary to run F<t/pod_file_ok.t>.
 
-=item t/data/_cpanplus/sourcefiles.s42.c42.stored
-
-This is a L<CPANPLUS|CPANPLUS>-format metadata file containing B<only>
-the module index entries necessary to run F</pod_file_ok.t>.
-
 =item t/data/_http/status
 
 This is a L<Storable|Storable> C<nstore()>-format file specifying the
@@ -136,24 +127,11 @@ place:
 
 =item Set C<$Test::Pod::LinkCheck::Lite::DIRECTORY_LEADER to C<'_'>.
 
-This forces VMS-style directory names for the L<CPAN|CPAN> and
-L<CPANPLUS|CPANPLUS> logic.
+This forces VMS-style directory names for the L<CPAN|CPAN> logic.
 
 =item Set C<$ENV{HOME}> to C<'t/data'>.
 
 This forces the L<CPAN|CPAN> logic to look there for the C<CPAN> index.
-
-=item Set C<$ENV{PERL5_CPANPLUS_HOME}> to C<'t/data'>.
-
-This forces the L<CPANPLUS|CPANPLUS> logic to look there for the
-C<CPANPLUS> index.
-
-=item Set C<$Storable::VERSION> and C<$CPANPLUS::VERSION> to C<42>.
-
-This needs to be done after L<Storable|Storable> and
-L<CPANPLUS|CPANPLUS> are loaded, and is necessary because the
-L<CPANPLUS|CPANPLUS> logic embeds both these versions in the name of the
-metadata file.
 
 =item C<use lib 'inc/Mock'>
 

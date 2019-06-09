@@ -27,7 +27,6 @@ defined $DIRECTORY_LEADER
     or $DIRECTORY_LEADER = ON_VMS ? '_' : '.';
 
 my $DOT_CPAN		= "${DIRECTORY_LEADER}cpan";
-my $DOT_CPANPLUS	= "${DIRECTORY_LEADER}cpanplus";
 
 use constant ARRAY_REF	=> ref [];
 use constant HASH_REF	=> ref {};
@@ -529,58 +528,6 @@ sub _get_module_index_cpan_meta_db {
     ];
 }
 
-sub _get_module_index_cpanp {
-#   my ( $self ) = @_;
-
-    # CPANPLUS is no longer core, so we have to check. We have to
-    # suppress the possible deprecation warning when we try to load
-    # CPANPLUS.
-    {
-	local $SIG{__WARN__} = sub {};
-	_has_usable( 'CPANPLUS' )
-	    or return;
-    }
-
-    # The following code reproduces
-    # CPANPLUS::Internals::Utils::_home_dir, more or less
-
-    my @dir_list = ( $ENV{PERL5_CPANPLUS_HOME} );
-    _has_usable( 'File::HomeDir' )	# sic: CPANPLUS specifies no version
-	and push @dir_list, File::HomeDir->my_home();
-    push @dir_list, map { $ENV{$_} } qw{ APPDATA HOME USERPROFILE WINDIR
-    SYS$LOGIN };
-
-    # The preceding code reproduces
-    # CPANPLUS::Internals::Utils::_home_dir, more or less
-
-    foreach my $dir ( @dir_list ) {
-	defined $dir
-	    or next;
-
-	# CPANPLUS has a complicated metadata file naming convention
-	# where the name of the file encapsulates both the version of
-	# CPANPLUS and the version of Storable. The following is from
-	# CPANPLUS::Internals::Source::Memory::__memory_storable_file()
-	# TODO handle the SQLite version.
-	my $path = File::Spec->catdir( $dir, $DOT_CPANPLUS,
-	    sprintf 'sourcefiles.s%s.c%s.stored',
-	    Storable->VERSION, CPANPLUS->VERSION(),
-	);
-	-e $path
-	    or next;
-	my $rev = ( stat _ )[9];
-	my $hash = Storable::retrieve( $path )
-	    or return;
-	$hash = $hash->{'_mtree'};
-	return [
-	    sub { return $hash->{$_[0]} },
-	    $rev,
-	];
-    }
-
-    return;
-}
-
 # Handle url links. This is something like L<http://...> or
 # L<...|http://...>.
 sub _handle_url {
@@ -814,10 +761,6 @@ for this information in the following places:
 
 =item File F<Metadata> in the directory used by the C<CPAN> client;
 
-=item File F<sourcefiles.s*.c*.stored> in the directory used by the
-C<CPANPLUS> client. The two wildcards represent the version numbers of
-L<Storable|Storable> and L<CPANPLUS|CPANPLUS> respectively.
-
 =item Website L<https://cpanmetadb.plackperl.org/>, a.k.a. the CPAN Meta
 DB.
 
@@ -876,11 +819,6 @@ Possible indices are:
 =item cpan
 
 Use the module index found in the L<CPAN|CPAN> working directory.
-
-=item cpanp
-
-Use the module index found in the L<CPANPLUS|CPANPLUS> working
-directory.
 
 =item cpan_meta_db
 

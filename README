@@ -2,7 +2,9 @@ Test-Pod-LinkCheck-Lite is Copyright (C) 2019 by Thomas R. Wyant, III
 
 DESCRIPTION
 
-<<< Replace boiler plate >>>
+This Perl module tests POD links. A given file generates one failure for
+each broken link found. If no broken links are found, one passing test
+is done.
 
 INSTALLATION
 

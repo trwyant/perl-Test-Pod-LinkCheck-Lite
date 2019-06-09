@@ -37,14 +37,6 @@ use constant CODE_REF	=> ref sub {};
 
     local $Test::Pod::LinkCheck::Lite::DIRECTORY_LEADER = '_';
     require Test::Pod::LinkCheck::Lite;
-
-    require Storable;	# Core, so should always have
-    eval {
-	require CPANPLUS;	# Mocked
-
-	$Storable::VERSION = 42;	# For ease of testing CPANPLUS
-	$CPANPLUS::VERSION = 42;	# For ease of testing CPANPLUS
-    };
 }
 
 my $STRICT_IS_POSSIBLE	=
@@ -57,7 +49,6 @@ my @ua = ( undef, 'HTTP::Tiny' );
 
 {
     local $ENV{HOME} = 't/data';
-    local $ENV{PERL5_CPANPLUS_HOME} = 't/data';
 
     my $t = Test::Pod::LinkCheck::Lite->new(
 	strict	=> $STRICT_IS_POSSIBLE,
@@ -152,7 +143,6 @@ foreach my $ua ( @ua ) {
 foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
 
     local $ENV{HOME} = 't/data';
-    local $ENV{PERL5_CPANPLUS_HOME} = 't/data';
 
     my $t = Test::Pod::LinkCheck::Lite->new(
 	module_index	=> $mi,
