@@ -1,3 +1,13 @@
+0.000_003	2019-06-09	T. R. Wyant
+    Rename eg/test-por to eg/test-pod-links
+
+    Fix recursion bug triggered by C<0>. The problem was testing for
+    truth rather than definedness. A false (but defined) POD element
+    caused the extraction of POD elements to restart from the root.
+
+    Correct handling of section defs with formatting such as (actual
+    example) =head2 charnames::vianame(I<name>)
+
 0.000_002	2019-06-08	T. R. Wyant
     Correct failure file and line number reporting.
 
