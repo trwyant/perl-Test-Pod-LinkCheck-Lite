@@ -1,6 +1,6 @@
 Build.PL
 Changes
-eg/test-pod
+eg/test-pod-links
 inc/Mock/HTTP/Tiny.pm
 inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
@@ -26,6 +26,7 @@ t/data/internal.pod
 t/data/internal_error.pod
 t/data/man.pod
 t/data/no_links.pod
+t/data/recursion_bug.pod
 t/data/url_links.pod
 t/pod_file_ok.t
 xt/author/changes.t

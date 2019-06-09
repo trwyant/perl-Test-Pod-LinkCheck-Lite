@@ -169,8 +169,11 @@ sub all_pod_files_ok {
     File::Find::find( {
 	    no_chdir	=> 1,
 	    wanted	=> sub {
-		$self->_is_perl_file( $_ )
-		    and $errors += $self->pod_file_ok( $_ );
+		if ( $self->_is_perl_file( $_ ) ) {
+		    $TEST->note( "Checking POD links in $File::Find::name" );
+		    $errors += $self->pod_file_ok( $_ );
+		}
+		return;
 	    },
 	},
 	@dir,
@@ -285,18 +288,35 @@ sub _build_section_hash {
 	$self->_extract_nodes( \&_want_sections, $root ) };
 }
 
+# my @nodes = $self->_extract_nodes( $want, $node )
+#
+# This subroutine extracts all subnodes of the given node that pass the
+# test specified by $want. The arguments are:
+#
+# $want is a code reference called with arguments $self and the subnode
+#   being considered. It should return the subnode itself if that is
+#   wanted, or a false value otherwise. The default always returns the
+#   subnode.
+# $node is the node from which subnodes are to be extracted. If
+#   unspecified the root of the latest parse will be used. Note that
+#   this argument will be returned if it passes the $want check.
+#
 sub _extract_nodes {
     my ( $self, $want, $node ) = @_;
 
     $want ||= sub { return $_[1] };
-    $node ||= $self->{_root};
+    defined $node
+	or $node = $self->{_root};
 
     ref $node
 	or return;
 
+    # The grep() below is paranoia based on the amount of pain incurred
+    # in finding that I needed to check for a defined value rather than
+    # a true value for the $node argument.
     return (
 	$want->( $self, $node ), map { $self->_extract_nodes(
-	    $want, $_ ) } @$node[ 2 .. $#$node ] );
+	    $want, $_ ) } grep { defined } @$node[ 2 .. $#$node ] );
 }
 
 # Get the information on installed documentation. If the doc is found
