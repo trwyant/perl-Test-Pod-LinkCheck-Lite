@@ -40,14 +40,15 @@ __END__
 
 =head1 TITLE
 
-test-pod - Test a POD file, or literal POD.
+test-pod-links - Test a POD file, or literal POD.
 
 =head1 SYNOPSIS
 
- test-pod fubar.pm
- test-pod 'L<Foobar|Foo/bar>'
- test-pod -help
- test-pod -version
+ test-pod-links
+ test-pod-links fubar.pm
+ test-pod-links 'L<Foobar|Foo/bar>'
+ test-pod-links -help
+ test-pod-links -version
 
 =head1 OPTIONS
 
@@ -81,7 +82,10 @@ This option displays the version of this script. The script then exits.
 =head1 DETAILS
 
 This Perl script tests the POD specified as its first and only command
-line argument. This can be either the name of a file, or literal POD.
+line argument. This can be either the name of a file, or literal POD. If
+the argument is the name of a directory, all Perl files in that
+directory are tested. If no argument is specified, all Perl files in
+F<blib/> are tested.
 
 =head1 AUTHOR
 
