@@ -629,7 +629,7 @@ sub _is_perl_file {
 {
     my %ignore;
     BEGIN {
-	%ignore = map { $_ => 1 } __PACKAGE__, qw{ DB };
+	%ignore = map { $_ => 1 } __PACKAGE__, qw{ DB File::Find };
     }
 
     sub _nest_depth {
