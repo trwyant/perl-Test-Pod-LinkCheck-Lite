@@ -12,6 +12,7 @@ use File::Spec;			# Core since 5.4.5
 use HTTP::Tiny;			# Core since 5.13.9
 use IPC::Cmd ();		# Core since 5.9.5
 use Pod::Perldoc ();		# Core since 5.8.1
+use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
 use Pod::Simple::SimpleTree ();	# Not core
 use Scalar::Util ();		# Core since 5.7.3
 use Storable ();		# Core since 5.7.3
@@ -652,6 +653,15 @@ sub _want_sections {
 	or return;
     ref $node->[2]
 	and return;
+
+    # The following rigamarole is to flatten section names that contain
+    # formatting codes (e.g. 'foo(I<bar>)'). The formatting codes get
+    # lost in the process, but it's how the links themselves come out of
+    # the parse, so if we're wrong we are at least consistent.
+    my $ls = Pod::Simple::LinkSection->new(
+	@{ $node }[ 2 .. $#$node ] );
+    @{ $node }[ 2 .. $#$node ] = "$ls";
+
     return $node;
 }
 

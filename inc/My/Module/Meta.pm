@@ -74,6 +74,7 @@ sub requires {
 	'HTTP::Tiny'	=> 0,
 	'IPC::Cmd'	=> 0,
 	'Pod::Perldoc'	=> 0,
+	'Pod::Simple::LinkSection'	=> 0,
 	'Pod::Simple::SimpleTree'	=> 0,
 	'Scalar::Util'	=> 0,
 	'Storable'	=> 0,
