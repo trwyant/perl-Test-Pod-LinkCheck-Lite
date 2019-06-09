@@ -1,2 +1,5 @@
+0.000_002	2019-06-08	T. R. Wyant
+    Correct failure file and line number reporting.
+
 0.000_001	2019-06-08	T. R. Wyant
     Initial version.
