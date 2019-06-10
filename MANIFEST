@@ -1,5 +1,6 @@
 Build.PL
 Changes
+eg/README
 eg/test-pod-links
 inc/Mock/HTTP/Tiny.pm
 inc/My/Module/Build.pm

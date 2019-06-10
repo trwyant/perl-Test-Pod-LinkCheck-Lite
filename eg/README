@@ -1,0 +1,9 @@
+This directory contains the following specimen scripts:
+
+test-pod-links
+    This script executes a test on the specified file, directory, or POD
+    fragment. If no argument is given, it tests blib/.
+
+See also xt/author/pod_links.t in this distribution.
+
+# ex: set filetype=text textwidth=72 autoindent :
