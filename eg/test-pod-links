@@ -17,12 +17,14 @@ my %opt = (
 );
 
 GetOptions( \%opt,
-    qw{ man! web! },
+    qw{ dump! man! web! },
     help => sub { pod2usage( { -verbose => 2 } ) },
 ) and 1 >= @ARGV or pod2usage( { -verbose => 0 } );
 
 delete $opt{web}
     or $opt{ua} = undef;
+
+my $dump = delete $opt{dump};
 
 my $tp = Test::Pod::LinkCheck::Lite->new( %opt );
 
@@ -32,6 +34,16 @@ if ( ! @ARGV || -d $ARGV[0] ) {
     $tp->pod_file_ok( $ARGV[0] );
 } else {
     $tp->pod_file_ok( \"=pod\n\n$ARGV[0]" );
+}
+
+if ( $dump ) {
+    # The following require() is strictly pro forma, since
+    # Test::Pod::LinkCheck::Lite has already loaded it.
+    require Test::Builder;
+    my $TEST = Test::Builder->new();
+    $TEST->diag( '' );
+    $TEST->diag( 'Sections' );
+    $TEST->diag( "    $_" ) for sort keys %{ $tp->{_section} };
 }
 
 done_testing;
@@ -51,6 +63,15 @@ test-pod-links - Test a POD file, or literal POD.
  test-pod-links -version
 
 =head1 OPTIONS
+
+=head2 -dump
+
+If asserted, this Boolean option dumps selected object state after the
+test has been run. This option is unsupported, and may be changed or
+retracted without notice.
+
+As of this writing, it displays all the sections in the last file
+parsed, in ASCIIbetical order.
 
 =head2 -help
 
