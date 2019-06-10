@@ -705,7 +705,13 @@ Test::Pod::LinkCheck::Lite - Test POD links
 
 This Perl module tests POD links. A given file generates one failure for
 each broken link found. If no broken links are found, one passing test
-is done.
+is generated. This all means that you can not know how many tests will
+be generated, and you will need to use L<Test::More|Test::More>'s
+C<done_testing()> at the end of your test.
+
+This module should probably be considered alpha-quality code at this
+point. It correctly checks most of my modest corpus, but beyond that
+deponent sayeth not.
 
 This module started its life as a low-dependency version of
 L<Test::Pod::LinkCheck|Test::Pod::LinkCheck>. Significant
@@ -874,15 +880,13 @@ The default is false.
 =item ua
 
 This argument is the user agent to be used to check C<url> links, or the
-name of the user agent class. The default is C<'HTTP::Tiny'>.
-
-If an actual object is passed, it must support the C<head()> method,
-which must return either an L<HTTP::Response|HTTP::Response> or
-equivalent object, or a hash containing keys C<{success}>, C<{status}>,
-and C<{reason}> (i.e. a hash compatible with L<HTTP::Tiny|HTTP::Tiny>).
+name of the user agent class. The default is C<'HTTP::Tiny'>. Either a
+class name or an object are accepted, but either must be an
+L<HTTP::Tiny|HTTP::Tiny>.
 
 If you want to disable C<url> checking, specify this argument with value
-C<undef>.
+C<undef>. Disabling C<url> checking will also disable the use of the
+CPAN Meta database to check links to uninstalled modules.
 
 =back
 
@@ -910,7 +914,7 @@ This method returns the value of the C<'man'> attribute.
 
 =head2 module_index
 
- say 'Module indices: ', join $self->module_index();
+ say 'Module indices: ', join ', ', $self->module_index();
 
 This method returns the value of the C<'module_index'> attribute. If
 called in scalar context it returns a comma-delimited string.
@@ -935,11 +939,15 @@ C<'url'> links are not being checked.
 
 =head1 SEE ALSO
 
-L<Test::Pod::LinkCheck|Test::Pod::LinkCheck>
+L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> by Apocalypse checks all
+POD links except for URLs. It is L<Moose|Moose>-based.
 
-L<Test::Pod::Links|Test::Pod::Links>
+L<Test::Pod::Links|Test::Pod::Links> by Sven Kirmess checks all URLs or
+URL-like things in the document, whether or not they are actual POD
+links.
 
-L<Test::Pod::No404s|Test::Pod::No404s>
+L<Test::Pod::No404s|Test::Pod::No404s> by Apocalypse checks URL POD
+links.
 
 =head1 SUPPORT
 

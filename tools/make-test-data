@@ -22,8 +22,8 @@ GetOptions( \%opt,
 ) or pod2usage( { -verbose => 0 } );
 
 my %index = (
-    'Acme::Vuvuzela'		=> 1,
     'Invalid module'		=> 1,
+    'Moose'			=> 1,
     'Test::Pod::LinkCheck'	=> 1,
     'Test::Pod::Links'		=> 1,
     'Test::Pod::No404s'		=> 1,
