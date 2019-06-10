@@ -671,8 +671,6 @@ sub _want_sections {
     my ( undef, $node ) = @_;
     $node->[0] =~ m/ \A head \d+ \z /smx
 	or return;
-    ref $node->[2]
-	and return;
 
     # The following rigamarole is to flatten section names that contain
     # formatting codes (e.g. 'foo(I<bar>)'). The formatting codes get

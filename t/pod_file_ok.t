@@ -110,7 +110,9 @@ my @ua = ( undef, 'HTTP::Tiny' );
 
     $t->pod_file_ok( 't/data/external_uninstalled.pod' );
 
-    $t->pod_file_ok( 't/data/recursion_bug.pod' );
+    $t->pod_file_ok( 't/data/bug_leading_format_code.pod' );
+
+    $t->pod_file_ok( 't/data/bug_recursion.pod' );
 
     $t->all_pod_files_ok();
 
