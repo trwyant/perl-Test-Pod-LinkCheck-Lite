@@ -31,6 +31,8 @@ my $DOT_CPAN		= "${DIRECTORY_LEADER}cpan";
 
 use constant ARRAY_REF	=> ref [];
 use constant HASH_REF	=> ref {};
+use constant NON_REF	=> ref 0;
+use constant REGEXP_REF	=> ref qr<x>smx;
 use constant SCALAR_REF	=> ref \0;
 
 # NOTE that Test::Builder->new() gets us a singleton. For this reason I
@@ -60,7 +62,7 @@ sub new {
     sub __strict_is_possible {
 	my ( $class, %arg ) = @_;
 	my $self = ref $class ? $class : $class->new( %arg );
-	return $self->man() && $self->ua() && 1;
+	return $self->man() && $self->check_url();
     }
 
     sub _init {
@@ -78,6 +80,17 @@ sub new {
 	}
 	return $self;
     }
+}
+
+sub _default_check_url {
+    return 1;
+}
+
+# TODO this is a stupid implementation. Instead of flattening everything
+# into a regexp I should make everything into an array of regexpen and
+# iterate through them. It's a less convoluted implementation.
+sub _default_ignore_url {
+    return [];
 }
 
 {
@@ -107,8 +120,59 @@ sub _default_module_index {
     return \@handlers;
 }
 
-sub _default_ua {
-    return 'HTTP::Tiny';
+sub _default_agent {
+    return HTTP::Tiny->new()->agent();
+}
+
+sub _init_check_url {
+    my ( $self, $name, $value ) = @_;
+    $self->{$name} = $value ? 1 : 0;
+    return;
+}
+
+{
+    my %handler;
+
+    %handler = (
+	ARRAY_REF,	sub {
+	    my ( $value ) = @_;
+	    return( map { $handler{ ref $_ }->( $_ ) }
+		grep{ defined } @{ $value } );
+	},
+	NON_REF,	sub {
+	    my ( $value ) = @_;
+	    defined $value
+		or return;
+	    return qr< \A \Q$value\E \z >smx;
+	},
+	REGEXP_REF,	sub {
+	    my ( $value ) = @_;
+	    return $value;
+	},
+	SCALAR_REF,	sub {
+	    my ( $value ) = @_;
+	    return qr< \A \Q$$value\E \z >smx;
+	},
+    );
+
+    sub _init_ignore_url {
+	my ( $self, $name, $value ) = @_;
+
+	my $rslt;
+	{
+	    local $@ = undef;
+	    eval {
+		$self->{$name} = [ $handler{ ref $value }->( $value ) ]
+	    } and $rslt = 1;
+	    use YAML;
+	    $rslt or warn "Exception $@ on ", defined $value ? $value :
+	    '<undef>', 'handlers are '. Dump( \%handler );
+	}
+	$rslt
+	    or Carp::croak(
+	    'Invalid ignore_url value: must be scalar, regexp, array ref, or undef' );
+	return;
+    }
 }
 
 sub _init_man {
@@ -138,6 +202,12 @@ sub _init_strict {
     return;
 }
 
+sub _init_agent {
+    my ( $self, $name, $value ) = @_;
+    $self->{$name} = $value;
+    return;
+}
+
 sub _process_array_argument {
     my ( $arg ) = @_;
     ARRAY_REF eq ref $arg
@@ -145,40 +215,42 @@ sub _process_array_argument {
     return [ map { split qr< \s*, \s* >smx } @{ $arg } ];
 }
 
-sub _init_ua {
-    my ( $self, $name, $value ) = @_;
-    if ( defined $value ) {
-	local $@ = undef;
-	eval {
-	    $value->isa( 'HTTP::Tiny' )
-	}
-	    or Carp::Croak( "Ua attribute $value must be an HTTP::Tiny" );
-	ref $value
-	    or $value = $value->new();
-	$self->{$name} = $value;
-    }
-    return;
-}
-
 sub all_pod_files_ok {
     my ( $self, @dir ) = @_;
+
     @dir
 	or push @dir, 'blib';
-    my $errors = 0;
+
+    my ( $fail, $pass, $skip ) = ( 0 ) x 3;
 
     File::Find::find( {
 	    no_chdir	=> 1,
 	    wanted	=> sub {
 		if ( $self->_is_perl_file( $_ ) ) {
 		    $TEST->note( "Checking POD links in $File::Find::name" );
-		    $errors += $self->pod_file_ok( $_ );
+		    my ( $f, $p, $s ) = $self->pod_file_ok( $_ );
+		    $fail += $f;
+		    $pass += $p;
+		    $skip += $s;
 		}
 		return;
 	    },
 	},
 	@dir,
     );
-    return $errors;
+    return wantarray ? ( $fail, $pass, $skip ) : $fail;
+}
+
+sub check_url {
+    my ( $self ) = @_;
+    return $self->{check_url}
+}
+
+# This subroutine returns the value of the ignore_url attribute. It is
+# PRIVATE to this package, and may be changed or revoked at any time.
+sub __ignore_url {
+    my ( $self ) = @_;
+    return $self->{ignore_url}
 }
 
 sub man {
@@ -198,6 +270,11 @@ sub pod_file_ok {
     my ( $self, $file ) = @_;
 
     delete $self->{_section};
+    $self->{_test} = {
+	pass	=> 0,
+	fail	=> 0,
+	skip	=> 0,
+    };
 
     my $parser = Pod::Simple::SimpleTree->new();
 
@@ -211,8 +288,9 @@ sub pod_file_ok {
 	$file_name = "File $file";
 	$parser->parse_file( $file );
     } else {
-	return $self->_fail(
+	$self->_fail(
 	    "File $file does not exist, or is not a normal file" );
+	return wantarray ? ( 1, 0, 0 ) : 1;
     }
 
     $parser->any_errata_seen()
@@ -222,7 +300,10 @@ sub pod_file_ok {
 
     $self->{_root} = $parser->root();
     my @links = $self->_extract_nodes( \&_want_links )
-	or return $self->_pass( $msg );
+	or do {
+	$self->_pass( $msg );
+	return wantarray ? ( 0, 1, 0 ) : 0;
+    };
 
     my $errors = 0;
 
@@ -232,7 +313,11 @@ sub pod_file_ok {
 	$errors += $code->( $self, $file_name, $link );
     }
 
-    return $errors || $self->_pass( $msg );
+    $errors
+	or $self->_pass( $msg );
+    return wantarray ?
+	( @{ $self->{_test} }{ qw{ fail pass skip } } ) :
+	$self->{_test}{fail};
 }
 
 sub strict {
@@ -240,41 +325,48 @@ sub strict {
     return $self->{strict};
 }
 
-sub ua {
+sub _user_agent {
     my ( $self ) = @_;
-    return $self->{ua};
+    return( $self->{_user_agent} ||= HTTP::Tiny->new(
+	    agent	=> $self->agent(),
+	) );
+}
+
+sub agent {
+    my ( $self ) = @_;
+    return $self->{agent};
 }
 
 sub _pass {
-    my ( undef, @msg ) = @_;
+    my ( $self, @msg ) = @_;
     local $Test::Builder::Level = _nest_depth();
     $TEST->ok( 1, join '', @msg );
+    $self->{_test}{pass}++;
     return 0;
 }
 
 sub _fail {
-    my ( undef, @msg ) = @_;
+    my ( $self, @msg ) = @_;
     local $Test::Builder::Level = _nest_depth();
     $TEST->ok( 0, join '', @msg );
+    $self->{_test}{fail}++;
     return 1;
 }
 
 sub _skip {
-    my ( undef, @msg ) = @_;
+    my ( $self, @msg ) = @_;
     local $Test::Builder::Level =  _nest_depth();
     $TEST->skip( join '', @msg );
+    $self->{_test}{skip}++;
     return 0;
 }
 
 sub _strict {
-    my ( $self, @msg ) = @_;
-    local $Test::Builder::Level = _nest_depth();
+    my ( $self ) = @_;
     if ( $self->{strict} ) {
-	$TEST->ok( 0, join '', @msg );
-	return 1;
+	goto &_fail;
     } else {
-	$TEST->skip( join '', @msg );
-	return 0;
+	goto &_skip;
     }
 }
 
@@ -532,8 +624,7 @@ sub _get_module_index_cpan {
 sub _get_module_index_cpan_meta_db {
     my ( $self ) = @_;
 
-    my $ua = $self->ua()
-	or return;
+    my $user_agent = $self->_user_agent();
 
     my %hash;
 
@@ -541,7 +632,7 @@ sub _get_module_index_cpan_meta_db {
 	sub {
 	    exists $hash{$_[0]}
 		and return $hash{$_[0]};
-	    my $resp = $ua->head(
+	    my $resp = $user_agent->head(
 		"https://cpanmetadb.plackperl.org/v1.0/package/$_[0]" );
 	    return ( $hash{$_[0]} = $resp->{success} );
 	},
@@ -554,15 +645,25 @@ sub _get_module_index_cpan_meta_db {
 sub _handle_url {
     my ( $self, $file_name, $link ) = @_;
 
-    my $ua = $self->ua()
+
+    # TODO think about this -- should it be _strict() or _skip()?
+    $self->check_url()
 	or return $self->_strict(
 	"$file_name link L<$link->[1]{raw}> not checked; url checks disabled" );
 
-    $link->[1]{to}
+    my $user_agent = $self->_user_agent();
+
+    my $url = "$link->[1]{to}"	# Stringify object
 	or return $self->_fail(
 	    "$file_name link L<$link->[1]{raw} contains no url" );
 
-    my $resp = $ua->head( $link->[1]{to} );
+    foreach my $re ( @{ $self->__ignore_url() } ) {
+	$url =~ $re
+	    and return $self->_skip(
+	    "$file_name link L<$link->[1]{raw}> not checked; explicitly ignored" );
+    }
+
+    my $resp = $user_agent->head( $url );
 
     $resp->{success}
 	and return 0;
@@ -725,7 +826,7 @@ This module shells out only to check C<man> links.
 
 =item Unchecked links are explicitly skipped
 
-That is, a skipped test is generated for each.
+That is, a skipped test is generated for each. Note that
 L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> appears to fail the link in
 at least some such cases. You can get closer to the
 L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> behaviour by setting
@@ -757,9 +858,9 @@ and C<man -w> can be executed.
 =item * url
 
 These links are of the form C<< LE<lt>http://...E<gt> >> (or C<https:>
-or whatever). They will only be checked if the C<ua> attribute is true,
-and can only be successfully checked if Perl has access to the specified
-URL.
+or whatever). They will only be checked if the C<check_url> attribute is
+true, and can only be successfully checked if Perl has access to the
+specified URL.
 
 =item * pod (internal)
 
@@ -833,6 +934,45 @@ The following arguments are supported:
 
 =over
 
+=item agent
+
+This argument is the user agent string to use for web access.
+
+The default is that of L<HTTP::Tiny|HTTP::Tiny>.
+
+=item check_url
+
+This Boolean argument is true if C<url> links are to be checked, and
+false if not. The default is true.
+
+=item ignore_url
+
+This argument specifies one or more URLs to ignore when checking C<url>
+links. It can be specified as:
+
+=over
+
+=item A C<Regexp> object
+
+Any URL that matches this Regexp is ignored.
+
+=item C<undef>
+
+No URLs are ignored.
+
+=item a scalar
+
+This URL is ignored.
+
+=item an C<ARRAY> reference
+
+The array can contain any legal ignore specification, and any URL that
+matches any value in the array is ignored. Nested arrays are flattened.
+
+=back
+
+The default is C<[]>.
+
 =item man
 
 This Boolean argument is true if C<man> links are to be checked, and
@@ -877,18 +1017,11 @@ a C<man> program, even if they specify valid man pages.
 
 The default is false.
 
-=item ua
-
-This argument is the user agent to be used to check C<url> links, or the
-name of the user agent class. The default is C<'HTTP::Tiny'>. Either a
-class name or an object are accepted, but either must be an
-L<HTTP::Tiny|HTTP::Tiny>.
-
-If you want to disable C<url> checking, specify this argument with value
-C<undef>. Disabling C<url> checking will also disable the use of the
-CPAN Meta database to check links to uninstalled modules.
-
 =back
+
+=head2 agent
+
+This method returns the value of the C<'agent'> attribute.
 
 =head2 all_pod_files_ok
 
@@ -906,6 +1039,27 @@ F<.PL>.
 If no arguments are specified, the contents of F<blib/> are tested. This
 is the recommended usage.
 
+If called in scalar context, this method returns the number of test
+failures encountered. If called in list context it return the number of
+failures, passes, and skipped tests, in that order.
+
+=head2 check_url
+
+ $t->check_url() and say 'URL links are checked';
+
+This method returns the value of the C<'check_url'> attribute.
+
+=head2 __ignore_url
+
+ say 'A URL is ignored if it matches ', $t->__ignore_url().
+
+This method is explicitly unsupported, and can be changed or retracted
+without notice. I<Caveat user.>
+
+This method returns the value of the C<'ignore_url'> attribute. In
+general this is B<not> the same as the value of the corresponding
+argument to L<new()|/new>.
+
 =head2 man
 
  $t->man() and say 'man links are checked';
@@ -921,21 +1075,19 @@ called in scalar context it returns a comma-delimited string.
 
 =head2 pod_file_ok
 
- my $errors = $t->pod_file_ok( 'lib/Foo/Bar.pm' );
+ my $failures = $t->pod_file_ok( 'lib/Foo/Bar.pm' );
 
-This method tests the links in the given file, returning the number of
-errors found. Each error appears in the TAP output as a test failure. If
-no errors are found, a passing test will appear in the TAP output.
+This method tests the links in the given file. Each failure appears in
+the TAP output as a test failure. If no failures are found, a passing
+test will appear in the TAP output.
+
+If called in scalar context, this method returns the number of test
+failures encountered. If called in list context it return the number of
+failures, passes, and skipped tests, in that order.
 
 =head2 strict
 
 This method returns the value of the C<'strict'> attribute.
-
-=head2 ua
-
-This method returns the value of the C<'ua'> attribute. This will be an
-actual object even if a class name was specified, or C<undef> if
-C<'url'> links are not being checked.
 
 =head1 SEE ALSO
 

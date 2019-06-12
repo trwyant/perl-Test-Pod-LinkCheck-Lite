@@ -45,8 +45,6 @@ my $STRICT_IS_POSSIBLE	=
 
 note '$STRICT_IS_POSSIBLE is ', $STRICT_IS_POSSIBLE ? 'true' : 'false';
 
-my @ua = ( undef, 'HTTP::Tiny' );
-
 {
     local $ENV{HOME} = 't/data';
 
@@ -54,13 +52,17 @@ my @ua = ( undef, 'HTTP::Tiny' );
 	strict	=> $STRICT_IS_POSSIBLE,
     );
 
+    my @rslt;
+
     $t->pod_file_ok( \'' );
 
     $t->pod_file_ok( 't/data/empty.pod' );
 
     $t->pod_file_ok( 't/data/no_links.pod' );
 
-    $t->pod_file_ok( 't/data/url_links.pod' );
+    @rslt = $t->pod_file_ok( 't/data/url_links.pod' );
+    is_deeply \@rslt, [ 0, 1, 0 ],
+	'Test of t/data/url_links.pod returned proper data';
 
     SKIP: {
 	$t->man()
@@ -118,16 +120,15 @@ my @ua = ( undef, 'HTTP::Tiny' );
 
 }
 
-foreach my $ua ( @ua ) {
+foreach my $check_url ( 0, 1 ) {
     my $t = Test::Pod::LinkCheck::Lite->new(
+	check_url	=> $check_url,
 	strict	=> $STRICT_IS_POSSIBLE,
-	ua	=> $ua,
     );
 
-    note 'Test with explicitly-specified ua => ',
-	defined $ua ? "'$ua'" : 'undef';
+    note "Test with explicitly-specified check_url => $check_url";
 
-    if ( $ua ) {
+    if ( $check_url ) {
 	$t->pod_file_ok( 't/data/url_links.pod' );
     } else {
 	my $errors;
@@ -140,8 +141,44 @@ foreach my $ua ( @ua ) {
 	}
 
 	cmp_ok $errors, '==', $STRICT_IS_POSSIBLE ? 1 : 0,
-	    't/data/url_links.pod error count with web checks disabled';
+	    't/data/url_links.pod error count with url checks disabled';
     }
+}
+
+foreach my $ignore (
+    [ []	=> [] ],
+    [ undef,	   [] ],
+    [ 'http://foo.bar/'	=> [
+	    qr< \A \Qhttp://foo.bar/\E \z >smx,
+	],
+    ],
+    [ qr< \Q//foo.bar\E \b >smxi	=> [
+	    qr< \Q//foo.bar\E \b >smxi
+	],
+    ],
+    [ [ undef, qw< http://foo.bar/ http://baz.burfle/ > ]	=>
+	[ qr< \A \Qhttp://foo.bar/\E \z >smx, qr< \A \Qhttp://baz.burfle/\E \z >smx ],
+    ],
+) {
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	ignore_url	=> $ignore->[0],
+    );
+
+    is_deeply $t->__ignore_url(), $ignore->[1], join( ' ',
+	'Properly interpreted ignore_url => ',
+	defined $ignore->[0] ? explain $ignore->[0] : 'undef',
+    );
+    use YAML;
+}
+
+{
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	ignore_url	=> qr< \Q//metacpan.org/\E >smx,
+    );
+
+    my @rslt = $t->pod_file_ok( 't/data/url_links.pod' );
+    is_deeply \@rslt, [ 0, 1, 1 ],
+	'Test of t/data/url_links.pod returned proper data when ignoring URL';
 }
 
 foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {

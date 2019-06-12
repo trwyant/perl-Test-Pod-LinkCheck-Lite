@@ -25,5 +25,4 @@ Kirmess
 merchantability
 recursed
 sayeth
-ua
 Wyant

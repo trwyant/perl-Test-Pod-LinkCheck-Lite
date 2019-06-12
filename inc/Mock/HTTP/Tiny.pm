@@ -27,7 +27,26 @@ sub new {
     my ( $class, %arg ) = @_;
     defined $arg{fn}
 	or $arg{fn} = 't/data/_http/status';
+    if ( defined $arg{agent} ) {
+	$arg{agent} =~ m/ \s \z /smx
+	    and $arg{agent} .= $class->_default_agent();
+    } else {
+	$arg{agent} = $class->_default_agent();
+    }
     return bless \%arg, ref $class || $class;
+}
+
+sub agent {
+    my ( $invocant ) = @_;
+    ref $invocant
+	or return $invocant->_default_agent();
+    return $invocant->{agent};
+}
+
+sub _default_agent {
+    my ( $self ) = @_;
+    ( my $agent = ref $self || $self ) =~ s/ :: /-/smxg;
+    return join '/', "Mock $agent", $self->VERSION();
 }
 
 sub head {
@@ -96,6 +115,11 @@ passed as name/value pairs. The only supported argument is
 
 =over
 
+=item agent
+
+This argument specifies the user agent string. If it ends in a space the
+default user agent string is appended.
+
 =item fn
 
 This argument specifies the file to read for the desired statuses. The
@@ -103,6 +127,12 @@ default is F<t/data/_http/status>. This argument is B<not> recognized by
 the real L<HTTP::Tiny|HTTP::Tiny>.
 
 =back
+
+=head2 agent
+
+ my $user_agent_string = ua->agent();
+
+This method retrieves (but does not set) the user agent string.
 
 =head2 head
 
