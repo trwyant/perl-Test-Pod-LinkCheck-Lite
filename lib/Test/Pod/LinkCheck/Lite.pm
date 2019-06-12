@@ -57,14 +57,6 @@ sub new {
 	$dflt{$1} = $code;
     }
 
-    # For the use of t/pod_file_ok.t ONLY. May be removed without
-    # notice.
-    sub __strict_is_possible {
-	my ( $class, %arg ) = @_;
-	my $self = ref $class ? $class : $class->new( %arg );
-	return $self->man() && $self->check_url();
-    }
-
     sub _init {
 	my ( $self, %arg ) = @_;
 	foreach my $key ( keys %dflt ) {
@@ -196,12 +188,6 @@ sub _init_module_index {
     return;
 }
 
-sub _init_strict {
-    my ( $self, $name, $value ) = @_;
-    $self->{$name} = $value ? 1 : 0;
-    return;
-}
-
 sub _init_agent {
     my ( $self, $name, $value ) = @_;
     $self->{$name} = $value;
@@ -320,11 +306,6 @@ sub pod_file_ok {
 	$self->{_test}{fail};
 }
 
-sub strict {
-    my ( $self ) = @_;
-    return $self->{strict};
-}
-
 sub _user_agent {
     my ( $self ) = @_;
     return( $self->{_user_agent} ||= HTTP::Tiny->new(
@@ -359,15 +340,6 @@ sub _skip {
     $TEST->skip( join '', @msg );
     $self->{_test}{skip}++;
     return 0;
-}
-
-sub _strict {
-    my ( $self ) = @_;
-    if ( $self->{strict} ) {
-	goto &_fail;
-    } else {
-	goto &_skip;
-    }
 }
 
 # Build the section hash. This has a key for each section found in the
@@ -450,7 +422,7 @@ sub _handle_man {
     defined $rslt
 	and return $self->_fail(
 	    "$file_name link L<$link->[1]{raw}> refers to unknown man page" );
-    return $self->_strict(
+    return $self->_skip(
 	"$file_name link L<$link->[1]{raw}> not checked; man checks disabled" );
 }
 
@@ -556,7 +528,7 @@ sub _get_module_index {
     } else {
 	return sub {
 	    my ( $self, $file_name, $link ) = @_;
-	    return $self->_strict(
+	    return $self->_skip(
 		"$file_name link L<$link->[1]{raw}> not checked; " .
 		'not found on this system' );
 	};
@@ -646,9 +618,8 @@ sub _handle_url {
     my ( $self, $file_name, $link ) = @_;
 
 
-    # TODO think about this -- should it be _strict() or _skip()?
     $self->check_url()
-	or return $self->_strict(
+	or return $self->_skip(
 	"$file_name link L<$link->[1]{raw}> not checked; url checks disabled" );
 
     my $user_agent = $self->_user_agent();
@@ -828,9 +799,7 @@ This module shells out only to check C<man> links.
 
 That is, a skipped test is generated for each. Note that
 L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> appears to fail the link in
-at least some such cases. You can get closer to the
-L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> behaviour by setting
-C<< strict => 1 >> when you call L<new()|/new>.
+at least some such cases.
 
 =item URL links are checked
 
@@ -1004,19 +973,6 @@ indices.
 
 By default all indices are considered.
 
-=item strict
-
-If this Boolean argument is true, links that can not be checked are
-considered to be test failures. If it is false, links that can not be
-checked are skipped.
-
-This argument is intended primarily for testing, since asserting it may
-cause test failures for reasons outside either the user's or the
-author's control. For example C<man> links will fail on a system without
-a C<man> program, even if they specify valid man pages.
-
-The default is false.
-
 =back
 
 =head2 agent
@@ -1084,10 +1040,6 @@ test will appear in the TAP output.
 If called in scalar context, this method returns the number of test
 failures encountered. If called in list context it return the number of
 failures, passes, and skipped tests, in that order.
-
-=head2 strict
-
-This method returns the value of the C<'strict'> attribute.
 
 =head1 SEE ALSO
 

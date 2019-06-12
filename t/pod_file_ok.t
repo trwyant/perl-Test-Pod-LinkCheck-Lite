@@ -39,18 +39,10 @@ use constant CODE_REF	=> ref sub {};
     require Test::Pod::LinkCheck::Lite;
 }
 
-my $STRICT_IS_POSSIBLE	=
-    Test::Pod::LinkCheck::Lite->__strict_is_possible();
-
-
-note '$STRICT_IS_POSSIBLE is ', $STRICT_IS_POSSIBLE ? 'true' : 'false';
-
 {
     local $ENV{HOME} = 't/data';
 
-    my $t = Test::Pod::LinkCheck::Lite->new(
-	strict	=> $STRICT_IS_POSSIBLE,
-    );
+    my $t = Test::Pod::LinkCheck::Lite->new();
 
     my @rslt;
 
@@ -123,7 +115,6 @@ note '$STRICT_IS_POSSIBLE is ', $STRICT_IS_POSSIBLE ? 'true' : 'false';
 foreach my $check_url ( 0, 1 ) {
     my $t = Test::Pod::LinkCheck::Lite->new(
 	check_url	=> $check_url,
-	strict	=> $STRICT_IS_POSSIBLE,
     );
 
     note "Test with explicitly-specified check_url => $check_url";
@@ -131,16 +122,10 @@ foreach my $check_url ( 0, 1 ) {
     if ( $check_url ) {
 	$t->pod_file_ok( 't/data/url_links.pod' );
     } else {
-	my $errors;
+	my $errors = $t->pod_file_ok(
+	    't/data/url_links.pod' );
 
-	TODO: {
-	    local $TODO = $STRICT_IS_POSSIBLE ?
-		'Deliberate test failures.' : undef;
-	    $errors = $t->pod_file_ok(
-		't/data/url_links.pod' );
-	}
-
-	cmp_ok $errors, '==', $STRICT_IS_POSSIBLE ? 1 : 0,
+	cmp_ok $errors, '==', 0,
 	    't/data/url_links.pod error count with url checks disabled';
     }
 }
@@ -187,7 +172,6 @@ foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
 
     my $t = Test::Pod::LinkCheck::Lite->new(
 	module_index	=> $mi,
-	strict		=> $STRICT_IS_POSSIBLE,
     );
 
     note "Test with module_index => $mi";
