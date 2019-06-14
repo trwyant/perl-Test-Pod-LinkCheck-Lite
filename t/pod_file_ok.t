@@ -18,6 +18,8 @@ use Test::More 0.88;	# Because of done_testing();
 # should be in core (and yes, they exist).
 
 use constant CODE_REF	=> ref sub {};
+use constant NON_REF	=> ref 0;
+use constant REGEXP_REF	=> ref qr{};
 
 {
     my $inx = 0;
@@ -47,6 +49,16 @@ use constant CODE_REF	=> ref sub {};
     my @rslt;
 
     $t->pod_file_ok( \'' );
+
+    {
+	my $fail;
+	TODO: {
+	    local $TODO = 'Deliberate failure';
+	    $fail = $t->pod_file_ok( 't/data/nonexistent.pod' );
+	}
+	cmp_ok $fail, '==', 1,
+	'Got expected failure checking non-existent file';
+    }
 
     $t->pod_file_ok( 't/data/empty.pod' );
 
@@ -130,30 +142,51 @@ foreach my $check_url ( 0, 1 ) {
     }
 }
 
-foreach my $ignore (
-    [ []	=> [] ],
-    [ undef,	   [] ],
-    [ 'http://foo.bar/'	=> [
-	    qr< \A \Qhttp://foo.bar/\E \z >smx,
-	],
-    ],
-    [ qr< \Q//foo.bar\E \b >smxi	=> [
-	    qr< \Q//foo.bar\E \b >smxi
-	],
-    ],
-    [ [ undef, qw< http://foo.bar/ http://baz.burfle/ > ]	=>
-	[ qr< \A \Qhttp://foo.bar/\E \z >smx, qr< \A \Qhttp://baz.burfle/\E \z >smx ],
-    ],
-) {
-    my $t = Test::Pod::LinkCheck::Lite->new(
-	ignore_url	=> $ignore->[0],
-    );
+{
+    my $code = sub { 0 };
 
-    is_deeply $t->__ignore_url(), $ignore->[1], join( ' ',
-	'Properly interpreted ignore_url => ',
-	defined $ignore->[0] ? explain $ignore->[0] : 'undef',
-    );
-    use YAML;
+    foreach my $ignore (
+	[ []	=> {} ],
+	[ undef,	   {} ],
+	[ 'http://foo.bar/'	=> {
+		NON_REF,	{
+		    'http://foo.bar/'	=> 1,
+		},
+	    },
+	],
+	[ qr< \Q//foo.bar\E \b >smxi	=> {
+		REGEXP_REF,	[
+		    qr< \Q//foo.bar\E \b >smxi,
+		],
+	    },
+	],
+	[ [ undef, qw< http://foo.bar/ http://baz.burfle/ >, qr|//buzz/| ]	=> {
+		NON_REF,	{
+		    'http://foo.bar/'	=> 1,
+		    'http://baz.burfle/'	=> 1,
+		},
+		REGEXP_REF,	[
+		    qr|//buzz/|,
+		],
+	    },
+	],
+	[ [ $code, { 'http://foo/' => 1, 'http://bar/' => 0 } ]	=> {
+		NON_REF,	{
+		    'http://foo/'	=> 1,
+		},
+		CODE_REF,	[ $code ],
+	    }
+	],
+    ) {
+	my $t = Test::Pod::LinkCheck::Lite->new(
+	    ignore_url	=> $ignore->[0],
+	);
+
+	is_deeply $t->__ignore_url(), $ignore->[1], join( ' ',
+	    'Properly interpreted ignore_url => ',
+	    defined $ignore->[0] ? explain $ignore->[0] : 'undef',
+	);
+    }
 }
 
 {

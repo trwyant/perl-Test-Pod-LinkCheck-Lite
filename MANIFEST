@@ -17,6 +17,7 @@ t/basic.t
 t/data/_cpan/Metadata
 t/data/_http/status
 t/data/bug_leading_format_code.pod
+t/data/bug_other_distros.pod
 t/data/bug_recursion.pod
 t/data/empty.pod
 t/data/external_builtin.pod

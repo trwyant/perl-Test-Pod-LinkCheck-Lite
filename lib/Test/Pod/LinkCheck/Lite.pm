@@ -30,6 +30,7 @@ defined $DIRECTORY_LEADER
 my $DOT_CPAN		= "${DIRECTORY_LEADER}cpan";
 
 use constant ARRAY_REF	=> ref [];
+use constant CODE_REF	=> ref sub {};
 use constant HASH_REF	=> ref {};
 use constant NON_REF	=> ref 0;
 use constant REGEXP_REF	=> ref qr<x>smx;
@@ -78,9 +79,6 @@ sub _default_check_url {
     return 1;
 }
 
-# TODO this is a stupid implementation. Instead of flattening everything
-# into a regexp I should make everything into an array of regexpen and
-# iterate through them. It's a less convoluted implementation.
 sub _default_ignore_url {
     return [];
 }
@@ -127,42 +125,49 @@ sub _init_check_url {
 
     %handler = (
 	ARRAY_REF,	sub {
-	    my ( $value ) = @_;
-	    return( map { $handler{ ref $_ }->( $_ ) }
-		grep{ defined } @{ $value } );
+	    my ( $spec, $value ) = @_;
+	    $handler{ ref $_ }->( $spec, $_ ) for @{ $value };
+	    return;
+	},
+	CODE_REF,	sub {
+	    my ( $spec, $value ) = @_;
+	    push @{ $spec->{ CODE_REF() } }, $value;
+	    return;
+	},
+	HASH_REF,	sub {
+	    my ( $spec, $value ) = @_;
+	    $spec->{ NON_REF() }{$_} = 1 for
+		grep { $value->{$_} } keys %{ $value };
+	    return;
 	},
 	NON_REF,	sub {
-	    my ( $value ) = @_;
+	    my ( $spec, $value ) = @_;
 	    defined $value
 		or return;
-	    return qr< \A \Q$value\E \z >smx;
+	    $spec->{ NON_REF() }->{$value} = 1;
+	    return;
 	},
 	REGEXP_REF,	sub {
-	    my ( $value ) = @_;
-	    return $value;
+	    my ( $spec, $value ) = @_;
+	    push @{ $spec->{ REGEXP_REF() } }, $value;
+	    return;
 	},
 	SCALAR_REF,	sub {
-	    my ( $value ) = @_;
-	    return qr< \A \Q$$value\E \z >smx;
+	    my ( $spec, $value ) = @_;
+	    $spec->{ NON_REF() }->{$$value} = 1;
+	    return;
 	},
     );
 
     sub _init_ignore_url {
 	my ( $self, $name, $value ) = @_;
 
-	my $rslt;
-	{
-	    local $@ = undef;
-	    eval {
-		$self->{$name} = [ $handler{ ref $value }->( $value ) ]
-	    } and $rslt = 1;
-	    use YAML;
-	    $rslt or warn "Exception $@ on ", defined $value ? $value :
-	    '<undef>', 'handlers are '. Dump( \%handler );
-	}
-	$rslt
-	    or Carp::croak(
-	    'Invalid ignore_url value: must be scalar, regexp, array ref, or undef' );
+	my $spec = $self->{$name} = {};
+	eval {
+	    $handler{ ref $value }->( $spec, $value );
+	    1;
+	} or Carp::confess(
+	    "Invalid ignore_url value '$value': must be scalar, regexp, array ref, or undef" );
 	return;
     }
 }
@@ -234,9 +239,25 @@ sub check_url {
 
 # This subroutine returns the value of the ignore_url attribute. It is
 # PRIVATE to this package, and may be changed or revoked at any time.
+# If called with an argument, it returns a true value if that argument
+# is a URL that is to be ignored, and false otherwise.
 sub __ignore_url {
-    my ( $self ) = @_;
-    return $self->{ignore_url}
+    my ( $self, $url ) = @_;
+    @_ > 1
+	or return $self->{ignore_url};
+    my $spec = $self->{ignore_url};
+    $spec->{ NON_REF() }{$url}
+	and return 1;
+    foreach my $re ( @{ $spec->{ REGEXP_REF() } } ) {
+	$url =~ $re
+	    and return 1;
+    }
+    local $_ = $url;
+    foreach my $code ( @{ $spec->{ CODE_REF() } } ) {
+	$code->()
+	    and return 1;
+    }
+    return 0;
 }
 
 sub man {
@@ -628,11 +649,9 @@ sub _handle_url {
 	or return $self->_fail(
 	    "$file_name link L<$link->[1]{raw} contains no url" );
 
-    foreach my $re ( @{ $self->__ignore_url() } ) {
-	$url =~ $re
-	    and return $self->_skip(
-	    "$file_name link L<$link->[1]{raw}> not checked; explicitly ignored" );
-    }
+    $self->__ignore_url( $url )
+	and return $self->_skip(
+	"$file_name link L<$link->[1]{raw}> not checked; explicitly ignored" );
 
     my $resp = $user_agent->head( $url );
 
@@ -933,6 +952,19 @@ No URLs are ignored.
 
 This URL is ignored.
 
+=item a scalar reference
+
+The URL referred to is ignored.
+
+=item a hash reference
+
+The URL is ignored if the hash contains a true value for the URL.
+
+=item a code reference
+
+The code is called with the URL to ignore in the topic variable (a.k.a.
+C<$_>). The URL is ignored if the code returns a true value.
+
 =item an C<ARRAY> reference
 
 The array can contain any legal ignore specification, and any URL that
@@ -941,6 +973,11 @@ matches any value in the array is ignored. Nested arrays are flattened.
 =back
 
 The default is C<[]>.
+
+B<Note> that the order in which the individual checks are made is
+B<undefined>. OK, the implementation is deterministic, but the order of
+evaluation is an implementation detail that the author reserves the
+right to change without warning.
 
 =item man
 
@@ -1004,17 +1041,6 @@ failures, passes, and skipped tests, in that order.
  $t->check_url() and say 'URL links are checked';
 
 This method returns the value of the C<'check_url'> attribute.
-
-=head2 __ignore_url
-
- say 'A URL is ignored if it matches ', $t->__ignore_url().
-
-This method is explicitly unsupported, and can be changed or retracted
-without notice. I<Caveat user.>
-
-This method returns the value of the C<'ignore_url'> attribute. In
-general this is B<not> the same as the value of the corresponding
-argument to L<new()|/new>.
 
 =head2 man
 
