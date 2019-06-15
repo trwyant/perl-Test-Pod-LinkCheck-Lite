@@ -8,7 +8,7 @@ use warnings;
 use Carp;
 use Storable ();
 
-our $VERSION = '0.000_004';
+our $VERSION = '0.000_005';
 
 BEGIN {
     local $@ = undef;
