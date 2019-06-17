@@ -42,6 +42,32 @@ use constant REGEXP_REF	=> ref qr{};
 }
 
 {
+    my $t = Test::Pod::LinkCheck::Lite->new();
+
+    # Encapsulation violation for testing purposes. DO NOT try this at
+    # home.
+    $t->{_file_name} = 'File fu.bar';
+
+    is $t->__build_test_msg( '1, 2, 3' ), 'File fu.bar 1, 2, 3',
+	'Build test message';
+
+    is $t->__build_test_msg( [ undef, {
+		raw => 'Bazzle',
+	    },
+	], 'checked' ),
+	'File fu.bar link L<Bazzle> checked',
+	'Test message with link';
+
+    is $t->__build_test_msg( [ undef, {
+		paragraph_start_line	=> 42,
+		raw			=> 'Bazzle',
+	    },
+	], 'checked' ),
+	'File fu.bar line 42ff. Link L<Bazzle> checked',
+	'Test message with line number and link';
+}
+
+{
     local $ENV{HOME} = 't/data';
 
     my $t = Test::Pod::LinkCheck::Lite->new();

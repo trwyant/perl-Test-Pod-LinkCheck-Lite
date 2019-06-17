@@ -43,11 +43,16 @@ if ( ! @ARGV || -d $ARGV[0] ) {
 if ( $dump ) {
     # The following require() is strictly pro forma, since
     # Test::Pod::LinkCheck::Lite has already loaded it.
+    # The encapsulation violations in the following are UNSUPPORTED.
     require Test::Builder;
     my $TEST = Test::Builder->new();
     $TEST->diag( '' );
     $TEST->diag( 'Sections' );
     $TEST->diag( "    $_" ) for sort keys %{ $tp->{_section} };
+    $TEST->diag( '' );
+    $TEST->diag( 'Links' );
+    require YAML;
+    $TEST->diag( YAML::Dump( [ $tp->{_links} ] ) );
 }
 
 done_testing;

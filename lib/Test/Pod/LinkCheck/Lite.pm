@@ -285,43 +285,42 @@ sub pod_file_ok {
 
     my $parser = Pod::Simple::SimpleTree->new();
 
-    my $file_name;
     if ( SCALAR_REF eq ref $file ) {
-	$file_name = ${ $file } =~ m/ \n /smx ?
+	$self->{_file_name} = ${ $file } =~ m/ \n /smx ?
 	    "String $file" :
 	    "String '${ $file }'";
 	$parser->parse_string_document( ${ $file } );
     } elsif ( -f $file ) {
-	$file_name = "File $file";
+	$self->{_file_name} = "File $file";
 	$parser->parse_file( $file );
     } else {
+	$self->{_file_name} = "File $file";
 	$self->_fail(
-	    "File $file does not exist, or is not a normal file" );
+	    'does not exist, or is not a normal file' );
 	return wantarray ? ( 1, 0, 0 ) : 1;
     }
 
     $parser->any_errata_seen()
-	and $TEST->diag( "$file_name contains POD errors" );
-
-    my $msg = "$file_name contains no broken links";
+	and $TEST->diag( "$self->{_file_name} contains POD errors" );
 
     $self->{_root} = $parser->root();
     my @links = $self->_extract_nodes( \&_want_links )
 	or do {
-	$self->_pass( $msg );
+	$self->_pass();
 	return wantarray ? ( 0, 1, 0 ) : 0;
     };
+    $self->{_links} = \@links;
 
     my $errors = 0;
 
     foreach my $link ( @links ) {
 	my $code = $self->can( "_handle_$link->[1]{type}" )
 	    or Carp::confess( "TODO - link type $link->[1]{type} not supported" );
-	$errors += $code->( $self, $file_name, $link );
+	$errors += $code->( $self, $link );
     }
 
     $errors
-	or $self->_pass( $msg );
+	or $self->_pass();
     return wantarray ?
 	( @{ $self->{_test} }{ qw{ fail pass skip } } ) :
 	$self->{_test}{fail};
@@ -341,8 +340,10 @@ sub agent {
 
 sub _pass {
     my ( $self, @msg ) = @_;
+    @msg
+	or @msg = ( 'contains no broken links' );
     local $Test::Builder::Level = _nest_depth();
-    $TEST->ok( 1, join '', @msg );
+    $TEST->ok( 1, $self->__build_test_msg( @msg ) );
     $self->{_test}{pass}++;
     return 0;
 }
@@ -350,7 +351,7 @@ sub _pass {
 sub _fail {
     my ( $self, @msg ) = @_;
     local $Test::Builder::Level = _nest_depth();
-    $TEST->ok( 0, join '', @msg );
+    $TEST->ok( 0, $self->__build_test_msg( @msg ) );
     $self->{_test}{fail}++;
     return 1;
 }
@@ -358,9 +359,27 @@ sub _fail {
 sub _skip {
     my ( $self, @msg ) = @_;
     local $Test::Builder::Level =  _nest_depth();
-    $TEST->skip( join '', @msg );
+    $DB::single = 1;
+    $TEST->skip( $self->__build_test_msg( @msg ) );
     $self->{_test}{skip}++;
     return 0;
+}
+
+# This method formats test messages. It is PRIVATE to this package, and
+# can be changed or revoked without notice.
+sub __build_test_msg {
+    my ( $self, @msg ) = @_;
+    my @prefix = ( $self->{_file_name} );
+    if ( ARRAY_REF eq ref $msg[0] ) {
+	my $link = shift @msg;
+	my $text = "link L<$link->[1]{raw}>";
+	if ( defined $link->[1]{paragraph_start_line} ) {
+	    push @prefix, "line $link->[1]{paragraph_start_line}ff.";
+	    $text =~ s/ ( . ) /uc $1/smxe;
+	}
+	push @prefix, $text;
+    }
+    return join ' ', @prefix, join '', @msg;
 }
 
 # Build the section hash. This has a key for each section found in the
@@ -387,7 +406,7 @@ sub _build_section_hash {
 #   this argument will be returned if it passes the $want check.
 #
 sub _extract_nodes {
-    my ( $self, $want, $node ) = @_;
+    my ( $self, $want, $node, $para_line ) = @_;
 
     $want ||= sub { return $_[1] };
     defined $node
@@ -396,12 +415,14 @@ sub _extract_nodes {
     ref $node
 	or return;
 
+    $para_line = $node->[1]{start_line} || $para_line;
+
     # The grep() below is paranoia based on the amount of pain incurred
     # in finding that I needed to check for a defined value rather than
     # a true value for the $node argument.
     return (
-	$want->( $self, $node ), map { $self->_extract_nodes(
-	    $want, $_ ) } grep { defined } @$node[ 2 .. $#$node ] );
+	$want->( $self, $node, $para_line ), map { $self->_extract_nodes(
+	    $want, $_, $para_line ) } grep { defined } @$node[ 2 .. $#$node ] );
 }
 
 # Get the information on installed documentation. If the doc is found
@@ -437,42 +458,38 @@ sub _get_installed_doc_info {
 
 # Handle a 'man' link.
 sub _handle_man {
-    my ( $self, $file_name, $link ) = @_;
+    my ( $self, $link ) = @_;
     my $rslt = $self->_is_man_page( $link )
 	and return 0;
     defined $rslt
-	and return $self->_fail(
-	    "$file_name link L<$link->[1]{raw}> refers to unknown man page" );
-    return $self->_skip(
-	"$file_name link L<$link->[1]{raw}> not checked; man checks disabled" );
+	and return $self->_fail( $link, 'refers to unknown man page' );
+    return $self->_skip( $link, 'not checked; man checks disabled' );
 }
 
 # Handle pod links. This is pretty much everything, except for 'man'
 # (see above) or 'url' (see below).
 sub _handle_pod {
-    my ( $self, $file_name, $link ) = @_;
+    my ( $self, $link ) = @_;
 
     if ( $link->[1]{to} ) {
-	return $self->_check_external_pod_info( $file_name, $link )
+	return $self->_check_external_pod_info( $link )
 
     } elsif ( my $section = $link->[1]{section} ) {
 	# Internal links (no {to})
 	$self->{_section} ||= $self->_build_section_hash();
 	$self->{_section}{$section}
 	    and return 0;
-	return $self->_fail(
-	    "$file_name link L<$link->[1]{raw}> links to unknown section" );
+	return $self->_fail( $link, 'links to unknown section' );
 
     } else {
 	# Links to nowhere: L<...|> or L<...|/>
-	return $self->_fail(
-	    "$file_name link L<$link->[1]{raw}> links to nothing" );
+	return $self->_fail( $link, 'links to nothing' );
     }
     return 0;
 }
 
 sub _check_external_pod_info {
-    my ( $self, $file_name, $link ) = @_;
+    my ( $self, $link ) = @_;
     my $module = $link->[1]{to};
     my $section = $link->[1]{section};
 
@@ -507,8 +524,7 @@ sub _check_external_pod_info {
 	$data->{section}{$section}
 	    and return 0;
 
-	return $self->_fail(
-	    "$file_name link L<$link->[1]{raw}> links to unknown section" );
+	return $self->_fail( $link, 'links to unknown section' );
     }
 
     # If there is no section, it might be a man page, even though the
@@ -523,7 +539,7 @@ sub _check_external_pod_info {
 
     $self->{_cache}{uninstalled} ||= $self->_get_module_index();
 
-    return $self->{_cache}{uninstalled}->( $self, $file_name, $link );
+    return $self->{_cache}{uninstalled}->( $self, $link );
 
 }
 
@@ -534,23 +550,20 @@ sub _get_module_index {
     if ( @inxes ) {
 	my $modinx = $inxes[-1][0];
 	return sub {
-	    my ( $self, $file_name, $link ) = @_;
+	    my ( $self, $link ) = @_;
 	    my $module = $link->[1]{to};
 	    $modinx->( $module )
-		or return $self->_fail(
-		"$file_name link L<$link->[1]{raw}> links to unknown module" );
+		or return $self->_fail( $link, 'links to unknown module' );
 	    $link->[1]{section}
 		or return 0;
-	    return $self->_skip(
-		"$file_name link L<$link->[1]{raw}> not checked: " .
+	    return $self->_skip( $link, 'not checked; ',
 		'module exists, but unable to check sections of ',
 		'uninstalled modules' );
 	};
     } else {
 	return sub {
-	    my ( $self, $file_name, $link ) = @_;
-	    return $self->_skip(
-		"$file_name link L<$link->[1]{raw}> not checked; " .
+	    my ( $self, $link ) = @_;
+	    return $self->_skip( $link, 'not checked; ',
 		'not found on this system' );
 	};
     }
@@ -636,32 +649,26 @@ sub _get_module_index_cpan_meta_db {
 # Handle url links. This is something like L<http://...> or
 # L<...|http://...>.
 sub _handle_url {
-    my ( $self, $file_name, $link ) = @_;
+    my ( $self, $link ) = @_;
 
 
     $self->check_url()
-	or return $self->_skip(
-	"$file_name link L<$link->[1]{raw}> not checked; url checks disabled" );
+	or return $self->_skip( $link, 'not checked; url checks disabled' );
 
     my $user_agent = $self->_user_agent();
 
     my $url = "$link->[1]{to}"	# Stringify object
-	or return $self->_fail(
-	    "$file_name link L<$link->[1]{raw} contains no url" );
+	or return $self->_fail( $link, 'contains no url' );
 
     $self->__ignore_url( $url )
-	and return $self->_skip(
-	"$file_name link L<$link->[1]{raw}> not checked; explicitly ignored" );
+	and return $self->_skip( $link, 'not checked; explicitly ignored' );
 
     my $resp = $user_agent->head( $url );
 
     $resp->{success}
 	and return 0;
 
-    return $self->_fail(
-	"$file_name link L<$link->[1]{raw}> broken: ",
-	"$resp->{status} $resp->{reason}",
-    );
+    return $self->_fail( $link, "broken: $resp->{status} $resp->{reason}" );
 }
 
 {
@@ -752,9 +759,12 @@ sub _is_perl_file {
 }
 
 sub _want_links {
-    my ( undef, $node ) = @_;
+    my ( undef, $node, $para_line ) = @_;
     'L' eq $node->[0]
 	or return;
+    if ( defined $para_line ) {
+	$node->[1]{paragraph_start_line} ||= $para_line;
+    }
     return $node;
 }
 
