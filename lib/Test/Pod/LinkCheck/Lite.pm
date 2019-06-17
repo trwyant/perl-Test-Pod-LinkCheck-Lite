@@ -13,7 +13,7 @@ use HTTP::Tiny;			# Core since 5.13.9
 use IPC::Cmd ();		# Core since 5.9.5
 use Pod::Perldoc ();		# Core since 5.8.1
 use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
-use Pod::Simple::SimpleTree ();	# Not core
+use Pod::Simple::SimpleTree ();	# Core since 5.9.3 (part of Pod::Simple)
 use Scalar::Util ();		# Core since 5.7.3
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
@@ -836,9 +836,8 @@ This seemed to be an easy enough addition.
 
 =item Dependencies are minimized
 
-Given at least Perl 5.13.9, the only non-core modules used are
-L<B::Keywords|B::Keywords> and
-L<Pod::Simple::SimpleTree|Pod::Simple::SimpleTree>.
+Given at least Perl 5.13.9, the only non-core module used is
+L<B::Keywords|B::Keywords>.
 
 =back
 
