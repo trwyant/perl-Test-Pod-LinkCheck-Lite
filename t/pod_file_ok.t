@@ -146,7 +146,7 @@ use constant REGEXP_REF	=> ref qr{};
 
     $t->pod_file_ok( 't/data/bug_recursion.pod' );
 
-    $t->all_pod_files_ok();
+    $t->all_pod_files_ok( 't/data' );
 
 }
 
