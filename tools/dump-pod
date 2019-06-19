@@ -20,6 +20,7 @@ GetOptions( \%opt,
 ) and @ARGV < 2 or pod2usage( { -verbose => 0 } );
 
 my $parser = Pod::Simple::SimpleTree->new();
+$parser->preserve_whitespace( 1 );
 
 if ( @ARGV ) {
     if ( my $fn = expand_module( $ARGV[0] ) ) {
