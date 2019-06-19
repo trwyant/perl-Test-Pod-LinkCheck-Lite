@@ -44,6 +44,12 @@ use constant REGEXP_REF	=> ref qr{};
 {
     my $t = Test::Pod::LinkCheck::Lite->new();
 
+    diag '';
+    diag q<Default 'check_url' is >, Boolean( $t->check_url() );
+    diag q<Default 'man' is >, Boolean( $t->man() );
+    diag q<Default 'module_index' is ( >, join( ', ', map { "'$_'" }
+	$t->module_index() ), ' )';
+
     # Encapsulation violation for testing purposes. DO NOT try this at
     # home.
     $t->{_file_name} = 'File fu.bar';
@@ -239,6 +245,11 @@ foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
 }
 
 done_testing;
+
+sub Boolean {
+    my ( $arg ) = @_;
+    return $arg ? 'true' : 'false';
+}
 
 1;
 
