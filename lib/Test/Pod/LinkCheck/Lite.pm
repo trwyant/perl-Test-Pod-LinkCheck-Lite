@@ -2,8 +2,10 @@ package Test::Pod::LinkCheck::Lite;
 
 use 5.008;
 
-use strict;
-use warnings;
+use strict;			# Core since 5.0
+use warnings;			# Core since 5.6.0
+
+use utf8;			# Core since 5.6.0
 
 use B::Keywords ();		# Not core
 use Carp ();			# Core since 5.0
@@ -11,6 +13,7 @@ use File::Find ();		# Core since 5.0
 use File::Spec;			# Core since 5.4.5
 use HTTP::Tiny;			# Core since 5.13.9
 use IPC::Cmd ();		# Core since 5.9.5
+use Module::Load::Conditional ();	# Core since 5.9.5
 use Pod::Perldoc ();		# Core since 5.8.1
 use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
 use Pod::Simple::SimpleTree ();	# Core since 5.9.3 (part of Pod::Simple)
@@ -451,6 +454,13 @@ sub _get_installed_doc_info {
 	file	=> $path,
     };
 
+    # See the comment above (just below where _get_installed_doc_info is
+    # called) for why this check is done.
+    Module::Load::Conditional::check_install( module	=> $module )
+	and return {
+	undocumented	=> 1,
+    };
+
     return;
 }
 
@@ -500,9 +510,27 @@ sub _check_external_pod_info {
 	    and return 0;
     }
 
+    # NOTE: I have an example of this 'if' returning false when perhaps
+    # it should return true and then fail the link. The example is
+    # L<Pod::Perldoc|Pod::Perldoc>. Under Perl 5.8.9 ships with
+    # Pod::Perldoc 3.14, which is undocumented. But because the
+    # documentation is no found we assume the module is not installed,
+    # and fall through to consulting the module index, which succeeds.
+    #
     # If it is installed, handle it
     if ( my $data = $self->{_cache}{installed}{$module} ||=
 	$self->_get_installed_doc_info( $module ) ) {
+
+	# This check is the result of an Andreas J. König (ANDK) test
+	# failure under Perl 5.8.9. That version ships with Pod::Perldoc
+	# 3.14, which is undocumented. Previously the unfound
+	# documentation caused us to fall through to the 'uninstalled'
+	# code, which succeeded because all it was doing was looking for
+	# the existence of the module, and _assuming_ that it was
+	# documented.
+	$data->{undocumented}
+	    and $self->_fail(
+	    "$module is installed but undocumented" );
 
 	# If it is in fact an installed module AND there is no section,
 	# we can return success.
