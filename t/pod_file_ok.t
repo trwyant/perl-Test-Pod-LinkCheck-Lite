@@ -5,6 +5,7 @@ use 5.008;
 use strict;
 use warnings;
 
+use Module::Load::Conditional qw{ check_install };
 use Test::More 0.88;	# Because of done_testing();
 
 # This mess is because if Devel::Hide or Test::Without::Module is
@@ -129,7 +130,19 @@ use constant REGEXP_REF	=> ref qr{};
 
     $t->pod_file_ok( 't/data/external_installed.pod' );
 
-    $t->pod_file_ok( 't/data/external_installed_section.pod' );
+    SKIP: {
+
+	my $version = 1.40;
+
+	check_install(
+	    module	=> 'Scalar::Util',
+	    version	=> $version,
+	) or skip
+	    "External section check needs Scalar::Util version $version", 1;
+
+	$t->pod_file_ok( 't/data/external_installed_section.pod' );
+
+    }
 
     {
 	my $errors;
