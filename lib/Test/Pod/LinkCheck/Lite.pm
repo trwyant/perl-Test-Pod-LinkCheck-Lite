@@ -454,8 +454,10 @@ sub _handle_pod {
 
 sub _check_external_pod_info {
     my ( $self, $link ) = @_;
-    my $module = $link->[1]{to};
-    my $section = $link->[1]{section};
+
+    # Stringify overloaded objects
+    my $module = $link->[1]{to} ? "$link->[1]{to}" : undef;
+    my $section = $link->[1]{section} ?  "$link->[1]{section}" : undef;
 
     # If there is no section info it might be a Perl builtin. Return
     # success if it is.
@@ -464,13 +466,6 @@ sub _check_external_pod_info {
 	    and return 0;
     }
 
-    # NOTE: I have an example of this 'if' returning false when perhaps
-    # it should return true and then fail the link. The example is
-    # L<Pod::Perldoc|Pod::Perldoc>. Under Perl 5.8.9 ships with
-    # Pod::Perldoc 3.14, which is undocumented. But because the
-    # documentation is no found we assume the module is not installed,
-    # and fall through to consulting the module index, which succeeds.
-    #
     # If it is installed, handle it
     if ( my $data = $self->{_cache}{installed}{$module} ||=
 	$self->_get_installed_doc_info( $module ) ) {
@@ -487,8 +482,9 @@ sub _check_external_pod_info {
 	    "$module is installed but undocumented" );
 
 	# If it is in fact an installed module AND there is no section,
-	# we can return success.
-	$section
+	# we can return success. We go against the link rather than the
+	# section name because the latter could be '0'.
+	$link->[1]{section}
 	    or return 0;
 
 	# Find and parse the section info if needed.
@@ -504,7 +500,7 @@ sub _check_external_pod_info {
     # If there is no section, it might be a man page, even though the
     # parser did not parse it as one
     unless ( $section ) {
-	$self->_is_man_page( $module )
+	$self->_is_man_page( $link )
 	    and return 0;
     }
 
