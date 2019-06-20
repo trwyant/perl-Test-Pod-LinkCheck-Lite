@@ -1,2 +1,22 @@
+0.000_901	2019-06-20	T. R. Wyant
+    Skip t/pod_file_ok.t external section test if Scalar::Util is before
+    1.40. The problem is that before that version the section linked to
+    does not exist, and the test fails. Thanks to Slaven Rezić (SREZIC),
+    whose tester uncovered the need for this.
+
+    Test all_pod_files_ok against t/data, not blib/. The issue here is
+    that of the previous paragraph.
+
+    Have t/pod_file_ok.t dump configuration info.
+
+    Fail links to installed-but-undocumented modules. Thanks to Andreas
+    J. König (ANDK), whose tester uncovered the need for this.
+
+    Correct the documented "coreness" of Pod::Simple::SimpleTree. I had
+    it non-core, but it is actually part of Pod::Simple, which is core.
+
+    Add paragraph line number to generated test names. This triggered a
+    refactor of the test message generator.
+
 0.000_900	2019-06-17	T. R. Wyant
     First CPAN release.
