@@ -76,7 +76,7 @@ sub requires {
 	'Module::Load::Conditional'	=> 0,
 	'Pod::Perldoc'			=> 0,
 	'Pod::Simple::LinkSection'	=> 0,
-	'Pod::Simple::SimpleTree'	=> 0,
+	'Pod::Simple::PullParser'	=> 0,
 	'Scalar::Util'	=> 0,
 	'Storable'	=> 0,
 	'Test::Builder'	=> 0,

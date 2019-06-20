@@ -66,11 +66,11 @@ use constant REGEXP_REF	=> ref qr{};
 	'Test message with link';
 
     is $t->__build_test_msg( [ undef, {
-		paragraph_start_line	=> 42,
-		raw			=> 'Bazzle',
+		line_number	=> 42,
+		raw		=> 'Bazzle',
 	    },
 	], 'checked' ),
-	'File fu.bar line 42ff. Link L<Bazzle> checked',
+	'File fu.bar line 42 link L<Bazzle> checked',
 	'Test message with line number and link';
 }
 

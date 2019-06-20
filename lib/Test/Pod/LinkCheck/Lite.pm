@@ -16,7 +16,6 @@ use IPC::Cmd ();		# Core since 5.9.5
 use Module::Load::Conditional ();	# Core since 5.9.5
 use Pod::Perldoc ();		# Core since 5.8.1
 use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
-use Pod::Simple::SimpleTree ();	# Core since 5.9.3 (part of Pod::Simple)
 use Scalar::Util ();		# Core since 5.7.3
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
@@ -286,16 +285,12 @@ sub pod_file_ok {
 	skip	=> 0,
     };
 
-    my $parser = Pod::Simple::SimpleTree->new();
-
     if ( SCALAR_REF eq ref $file ) {
 	$self->{_file_name} = ${ $file } =~ m/ \n /smx ?
 	    "String $file" :
 	    "String '${ $file }'";
-	$parser->parse_string_document( ${ $file } );
     } elsif ( -f $file ) {
 	$self->{_file_name} = "File $file";
-	$parser->parse_file( $file );
     } else {
 	$self->{_file_name} = "File $file";
 	$self->_fail(
@@ -303,20 +298,18 @@ sub pod_file_ok {
 	return wantarray ? ( 1, 0, 0 ) : 1;
     }
 
-    $parser->any_errata_seen()
-	and $TEST->diag( "$self->{_file_name} contains POD errors" );
+    ( $self->{_section}, $self->{_links} ) = My_Parser->new()->run(
+	$file, \&_any_errata_seen, $self );
 
-    $self->{_root} = $parser->root();
-    my @links = $self->_extract_nodes( \&_want_links )
+    @{ $self->{_links} }
 	or do {
 	$self->_pass();
 	return wantarray ? ( 0, 1, 0 ) : 0;
     };
-    $self->{_links} = \@links;
 
     my $errors = 0;
 
-    foreach my $link ( @links ) {
+    foreach my $link ( @{ $self->{_links} } ) {
 	my $code = $self->can( "_handle_$link->[1]{type}" )
 	    or Carp::confess( "TODO - link type $link->[1]{type} not supported" );
 	$errors += $code->( $self, $link );
@@ -368,6 +361,13 @@ sub _skip {
     return 0;
 }
 
+sub _any_errata_seen {
+    my ( $self, $file ) = @_;
+    $file = defined $file ? "File $file" : $self->{_file_name};
+    $TEST->diag( "$file contains POD errors" );
+    return;
+}
+
 # This method formats test messages. It is PRIVATE to this package, and
 # can be changed or revoked without notice.
 sub __build_test_msg {
@@ -376,10 +376,8 @@ sub __build_test_msg {
     if ( ARRAY_REF eq ref $msg[0] ) {
 	my $link = shift @msg;
 	my $text = "link L<$link->[1]{raw}>";
-	if ( defined $link->[1]{paragraph_start_line} ) {
-	    push @prefix, "line $link->[1]{paragraph_start_line}ff.";
-	    $text =~ s/ ( . ) /uc $1/smxe;
-	}
+	defined $link->[1]{line_number}
+	    and push @prefix, "line $link->[1]{line_number}";
 	push @prefix, $text;
     }
     return join ' ', @prefix, join '', @msg;
@@ -443,7 +441,6 @@ sub _handle_pod {
 
     } elsif ( my $section = $link->[1]{section} ) {
 	# Internal links (no {to})
-	$self->{_section} ||= $self->_build_section_hash();
 	$self->{_section}{$section}
 	    and return 0;
 	return $self->_fail( $link, 'links to unknown section' );
@@ -495,16 +492,8 @@ sub _check_external_pod_info {
 	    or return 0;
 
 	# Find and parse the section info if needed.
-	unless ( $data->{section} ) {
-
-	    my $parser = Pod::Simple::SimpleTree->new();
-	    $parser->parse_file( $data->{file} );
-	    $parser->any_errata_seen()
-		and $TEST->diag(
-		"File $data->{file} contains POD errors" );
-	    $data->{section} = $self->_build_section_hash(
-		$parser->root() );
-	}
+	$data->{section} ||= My_Parser->new()->run( $data->{file},
+	    \&_any_errata_seen, $self, "File $data->{file}" );
 
 	$data->{section}{$section}
 	    and return 0;
@@ -556,12 +545,12 @@ sub _get_module_index {
 
 # In all of the module index getters, the return is either nothing at
 # all (for inability to use this indexing mechanism) or a refererence to
-# to an array. Element [0] of the array is a reference a piece of code
-# that takes the module name as its only argument, and returns a true
-# value if that module exists and a false value otherwise. Element [1]
-# of the array is a Perl time that is characteristic of the information
-# in the index (typically the revision date of the underlying file if
-# that's the way the index works).
+# an array. Element [0] of the array is a reference a piece of code that
+# takes the module name as its only argument, and returns a true value
+# if that module exists and a false value otherwise. Element [1] of the
+# array is a Perl time that is characteristic of the information in the
+# index (typically the revision date of the underlying file if that's
+# the way the index works).
 
 # NOTE that Test::Pod::LinkCheck loads CPAN and then messes with it to
 # try to prevent it from initializing itself. After trying this and
@@ -743,76 +732,87 @@ sub _is_perl_file {
     }
 }
 
-# Centralize all the POD parsing here so that it can be readily changed
-# out.
+package		## no critic (ProhibitMultiplePackages)
+My_Parser;	# Cargo cult to hide package from toolchain.
 
-# Build the section hash. This has a key for each section found in the
-# parse tree, with a true value for that key. The return is a reference
-# to said hash.
-sub _build_section_hash {
-    my ( $self, $root ) = @_;
-    return {
-	map { $_->[2] => 1 }
-	$self->_extract_nodes( \&_want_sections, $root ) };
+use Pod::Simple::PullParser;	# Core since 5.9.3 (part of Pod::Simple)
+
+@My_Parser::ISA = qw{ Pod::Simple::PullParser };
+
+sub new {
+    my ( $class ) = @_;
+    my $self = $class->SUPER::new();
+    $self->preserve_whitespace( 1 );
+    return $self;
 }
 
-# my @nodes = $self->_extract_nodes( $want, $node )
-#
-# This subroutine extracts all subnodes of the given node that pass the
-# test specified by $want. The arguments are:
-#
-# $want is a code reference called with arguments $self and the subnode
-#   being considered. It should return the subnode itself if that is
-#   wanted, or a false value otherwise. The default always returns the
-#   subnode.
-# $node is the node from which subnodes are to be extracted. If
-#   unspecified the root of the latest parse will be used. Note that
-#   this argument will be returned if it passes the $want check.
-#
-sub _extract_nodes {
-    my ( $self, $want, $node, $para_line ) = @_;
-
-    $want ||= sub { return $_[1] };
-    defined $node
-	or $node = $self->{_root};
-
-    ref $node
-	or return;
-
-    $para_line = $node->[1]{start_line} || $para_line;
-
-    # The grep() below is paranoia based on the amount of pain incurred
-    # in finding that I needed to check for a defined value rather than
-    # a true value for the $node argument.
-    return (
-	$want->( $self, $node, $para_line ), map { $self->_extract_nodes(
-	    $want, $_, $para_line ) } grep { defined } @$node[ 2 .. $#$node ] );
+sub links {
+    my ( $self ) = @_;
+    return @{ $self->{My_Parser}{links} };
 }
 
-sub _want_links {
-    my ( undef, $node, $para_line ) = @_;
-    'L' eq $node->[0]
-	or return;
-    if ( defined $para_line ) {
-	$node->[1]{paragraph_start_line} ||= $para_line;
+sub run {
+    my ( $self, $source, $err, @err_arg ) = @_;
+	defined $source
+	    and $self->set_source( $source );
+    my $attr = $self->_attr();
+    @{ $attr }{ qw{ line links sections } } = ( 1, [], {} );
+    while ( my $token = $self->get_token() ) {
+	if ( my $code = $self->can( '__token_' . $token->type() ) ) {
+	    $code->( $self, $token );
+	}
     }
-    return $node;
+    $err
+	and $self->any_errata_seen()
+	and $err->( @err_arg );
+    return wantarray ?
+	( $attr->{sections}, $attr->{links} ) :
+	$attr->{sections};
 }
 
-sub _want_sections {
-    my ( undef, $node ) = @_;
-    $node->[0] =~ m/ \A head \d+ \z /smx
-	or return;
+sub sections {
+    my ( $self ) = @_;
+    return @{ $self->_attr()->{sections} };
+}
 
-    # The following rigamarole is to flatten section names that contain
-    # formatting codes (e.g. 'foo(I<bar>)'). The formatting codes get
-    # lost in the process, but it's how the links themselves come out of
-    # the parse, so if we're wrong we are at least consistent.
-    my $ls = Pod::Simple::LinkSection->new(
-	@{ $node }[ 2 .. $#$node ] );
-    @{ $node }[ 2 .. $#$node ] = "$ls";
+sub _attr {
+    my ( $self ) = @_;
+    return $self->{ ( __PACKAGE__ ) } ||= {};
+}
 
-    return $node;
+sub __token_start {
+    my ( $self, $token ) = @_;
+    my $attr = $self->_attr();
+    if ( defined( my $line = $token->attr( 'start_line' ) ) ) {
+	$attr->{line} = $line;
+    }
+    my $tag = $token->tag();
+    if ( 'L' eq $tag ) {
+	$token->attr( line_number => $self->{My_Parser}{line} );
+	push @{ $attr->{links} }, [ @{ $token }[ 1 .. $#$token ] ];
+    } elsif ( $tag =~ m/ \A head [1-9] \z /smx ) {
+	$attr->{text} = '';
+    }
+    return;
+}
+
+sub __token_text {
+    my ( $self, $token ) = @_;
+    my $attr = $self->_attr();
+    my $text = $token->text();
+    $attr->{line} += $text =~ tr/\n//;
+    $attr->{text} .= $text;
+    return;
+}
+
+sub __token_end {
+    my ( $self, $token ) = @_;
+    my $attr = $self->_attr();
+    my $tag = $token->tag();
+    if ( $tag =~ m/ \A head [1-9] \z /smx ) {
+	$attr->{sections}{ delete $attr->{text} } = 1;
+    }
+    return;
 }
 
 1;
