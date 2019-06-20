@@ -385,49 +385,6 @@ sub __build_test_msg {
     return join ' ', @prefix, join '', @msg;
 }
 
-# Build the section hash. This has a key for each section found in the
-# parse tree, with a true value for that key. The return is a reference
-# to said hash.
-sub _build_section_hash {
-    my ( $self, $root ) = @_;
-    return {
-	map { $_->[2] => 1 }
-	$self->_extract_nodes( \&_want_sections, $root ) };
-}
-
-# my @nodes = $self->_extract_nodes( $want, $node )
-#
-# This subroutine extracts all subnodes of the given node that pass the
-# test specified by $want. The arguments are:
-#
-# $want is a code reference called with arguments $self and the subnode
-#   being considered. It should return the subnode itself if that is
-#   wanted, or a false value otherwise. The default always returns the
-#   subnode.
-# $node is the node from which subnodes are to be extracted. If
-#   unspecified the root of the latest parse will be used. Note that
-#   this argument will be returned if it passes the $want check.
-#
-sub _extract_nodes {
-    my ( $self, $want, $node, $para_line ) = @_;
-
-    $want ||= sub { return $_[1] };
-    defined $node
-	or $node = $self->{_root};
-
-    ref $node
-	or return;
-
-    $para_line = $node->[1]{start_line} || $para_line;
-
-    # The grep() below is paranoia based on the amount of pain incurred
-    # in finding that I needed to check for a defined value rather than
-    # a true value for the $node argument.
-    return (
-	$want->( $self, $node, $para_line ), map { $self->_extract_nodes(
-	    $want, $_, $para_line ) } grep { defined } @$node[ 2 .. $#$node ] );
-}
-
 # Get the information on installed documentation. If the doc is found
 # the return is a reference to a hash containing key {file}, value the
 # path name to the file containing the documentation. This works both
@@ -784,6 +741,52 @@ sub _is_perl_file {
 	$nest++ while $ignore{ caller( $nest ) || '' };
 	return $nest;
     }
+}
+
+# Centralize all the POD parsing here so that it can be readily changed
+# out.
+
+# Build the section hash. This has a key for each section found in the
+# parse tree, with a true value for that key. The return is a reference
+# to said hash.
+sub _build_section_hash {
+    my ( $self, $root ) = @_;
+    return {
+	map { $_->[2] => 1 }
+	$self->_extract_nodes( \&_want_sections, $root ) };
+}
+
+# my @nodes = $self->_extract_nodes( $want, $node )
+#
+# This subroutine extracts all subnodes of the given node that pass the
+# test specified by $want. The arguments are:
+#
+# $want is a code reference called with arguments $self and the subnode
+#   being considered. It should return the subnode itself if that is
+#   wanted, or a false value otherwise. The default always returns the
+#   subnode.
+# $node is the node from which subnodes are to be extracted. If
+#   unspecified the root of the latest parse will be used. Note that
+#   this argument will be returned if it passes the $want check.
+#
+sub _extract_nodes {
+    my ( $self, $want, $node, $para_line ) = @_;
+
+    $want ||= sub { return $_[1] };
+    defined $node
+	or $node = $self->{_root};
+
+    ref $node
+	or return;
+
+    $para_line = $node->[1]{start_line} || $para_line;
+
+    # The grep() below is paranoia based on the amount of pain incurred
+    # in finding that I needed to check for a defined value rather than
+    # a true value for the $node argument.
+    return (
+	$want->( $self, $node, $para_line ), map { $self->_extract_nodes(
+	    $want, $_, $para_line ) } grep { defined } @$node[ 2 .. $#$node ] );
 }
 
 sub _want_links {
