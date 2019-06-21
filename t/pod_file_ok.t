@@ -137,11 +137,13 @@ use constant REGEXP_REF	=> ref qr{};
     SKIP: {
 
 	my $version = 1.40;
-
-	check_install(
+	my $rv;
+	$rv = check_install(
 	    module	=> 'Scalar::Util',
 	    version	=> $version,
-	) or skip
+	) and defined $rv->{version}
+	    and $rv->{version} ge $version
+	    or skip
 	    "External section check needs Scalar::Util version $version", 1;
 
 	$t->pod_file_ok( 't/data/external_installed_section.pod' );
