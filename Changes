@@ -1,3 +1,19 @@
+0.000_902	2019-06-21	T. R. Wyant
+    Correct external installed section test. I wanted to skip it if
+    Scalar::Util's version was less than 1.40, but I did not read the
+    documentation for Module::Load::Conditional::check_install()
+    attentively enough.
+
+    Add check_external_sections, require_installed as attributes, with
+    same-named accessor methods.
+
+    Report actual line numbers of links (I hope). This involved
+    changing out the parser. Instead of using ::SimpleTree and rummaging
+    through the parse, I used ::PullParser and collected information as
+    I went. With preserve_whitespace() set true, I can infer the line
+    number of the link from the starting line of the paragraph it is
+    embedded in by counting line breaks.
+
 0.000_901	2019-06-20	T. R. Wyant
     Skip t/pod_file_ok.t external section test if Scalar::Util is before
     1.40. The problem is that before that version the section linked to
