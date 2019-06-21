@@ -49,6 +49,7 @@ use constant REGEXP_REF	=> ref qr{};
     diag q<Default 'check_external_sections' is >,
 	Boolean( $t->check_external_sections() );
     diag q<Default 'check_url' is >, Boolean( $t->check_url() );
+    diag q<Default 'ignore_url' is >, explain scalar $t->ignore_url();
     diag q<Default 'man' is >, Boolean( $t->man() );
     diag q<Default 'module_index' is ( >, join( ', ', map { "'$_'" }
 	$t->module_index() ), ' )';

@@ -269,8 +269,19 @@ sub check_url {
     return $self->{check_url}
 }
 
-# This subroutine returns the value of the ignore_url attribute. It is
-# PRIVATE to this package, and may be changed or revoked at any time.
+sub ignore_url {
+    my ( $self ) = @_;
+    my $spec = $self->__ignore_url();
+    my @rslt = (
+	sort keys %{ $spec->{ ( NON_REF ) } || {} },
+	@{ $spec->{ ( REGEXP_REF ) } || [] },
+	@{ $spec->{ ( CODE_REF ) } || [] },
+    );
+    return wantarray ? @rslt : \@rslt;
+}
+
+# This method returns the internal value of the ignore_url attribute. It
+# is PRIVATE to this package, and may be changed or revoked at any time.
 # If called with an argument, it returns a true value if that argument
 # is a URL that is to be ignored, and false otherwise.
 sub __ignore_url {
@@ -1142,6 +1153,15 @@ This method returns the value of the C<'check_url'> attribute.
  $t->check_url() and say 'URL links are checked';
 
 This method returns the value of the C<'check_url'> attribute.
+
+=head2 ignore_url
+
+ print 'Ignored URLs ', join ', ', $t->ignore_url();
+
+This method returns the value of the C<'ignore_url'> attribute. If
+called in scalar context, it returns an array reference. If called in
+list context it returns an array. Either way, the results will B<not> be
+in the same order as originally specified to L<new()|/new>.
 
 =head2 man
 
