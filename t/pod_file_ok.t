@@ -46,10 +46,14 @@ use constant REGEXP_REF	=> ref qr{};
     my $t = Test::Pod::LinkCheck::Lite->new();
 
     diag '';
+    diag q<Default 'check_external_sections' is >,
+	Boolean( $t->check_external_sections() );
     diag q<Default 'check_url' is >, Boolean( $t->check_url() );
     diag q<Default 'man' is >, Boolean( $t->man() );
     diag q<Default 'module_index' is ( >, join( ', ', map { "'$_'" }
 	$t->module_index() ), ' )';
+    diag q<Default 'require_installed' is >,
+	Boolean( $t->require_installed() );
 
     # Encapsulation violation for testing purposes. DO NOT try this at
     # home.
@@ -167,6 +171,35 @@ use constant REGEXP_REF	=> ref qr{};
 
     $t->all_pod_files_ok( 't/data' );
 
+}
+
+{
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	check_external_sections	=> 0,
+    );
+
+    note 'The following test should pass because check_external_sections => 0';
+    $t->pod_file_ok(
+	't/data/external_installed_bad_section.pod' );
+
+}
+
+{
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	require_installed	=> 1,
+    );
+
+    my $errors;
+
+    TODO: {
+	note 'The following test should fail because require_installed => 1';
+	local $TODO = 'Deliberate test failure.';
+	$errors = $t->pod_file_ok(
+	    't/data/external_uninstalled.pod' );
+    }
+
+    cmp_ok $errors, '==', 1,
+    't/data/external_uninstalled.pod fails without uninstalled module checking';
 }
 
 foreach my $check_url ( 0, 1 ) {

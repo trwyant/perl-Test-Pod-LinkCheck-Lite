@@ -77,6 +77,14 @@ sub new {
     }
 }
 
+sub _default_agent {
+    return HTTP::Tiny->new()->agent();
+}
+
+sub _default_check_external_sections {
+    return 1;
+}
+
 sub _default_check_url {
     return 1;
 }
@@ -112,8 +120,20 @@ sub _default_module_index {
     return \@handlers;
 }
 
-sub _default_agent {
-    return HTTP::Tiny->new()->agent();
+sub _default_require_installed {
+    return 0;
+}
+
+sub _init_agent {
+    my ( $self, $name, $value ) = @_;
+    $self->{$name} = $value;
+    return;
+}
+
+sub _init_check_external_sections {
+    my ( $self, $name, $value ) = @_;
+    $self->{$name} = $value ? 1 : 0;
+    return;
 }
 
 sub _init_check_url {
@@ -195,9 +215,9 @@ sub _init_module_index {
     return;
 }
 
-sub _init_agent {
+sub _init_require_installed {
     my ( $self, $name, $value ) = @_;
-    $self->{$name} = $value;
+    $self->{$name} = $value ? 1 : 0;
     return;
 }
 
@@ -206,6 +226,11 @@ sub _process_array_argument {
     ARRAY_REF eq ref $arg
 	or $arg = [ $arg ];
     return [ map { split qr< \s*, \s* >smx } @{ $arg } ];
+}
+
+sub agent {
+    my ( $self ) = @_;
+    return $self->{agent};
 }
 
 sub all_pod_files_ok {
@@ -232,6 +257,11 @@ sub all_pod_files_ok {
 	@dir,
     );
     return wantarray ? ( $fail, $pass, $skip ) : $fail;
+}
+
+sub check_external_sections {
+    my ( $self ) = @_;
+    return $self->{check_external_sections}
 }
 
 sub check_url {
@@ -311,7 +341,8 @@ sub pod_file_ok {
 
     foreach my $link ( @{ $self->{_links} } ) {
 	my $code = $self->can( "_handle_$link->[1]{type}" )
-	    or Carp::confess( "TODO - link type $link->[1]{type} not supported" );
+	    or Carp::confess(
+	    "TODO - link type $link->[1]{type} not supported" );
 	$errors += $code->( $self, $link );
     }
 
@@ -322,16 +353,16 @@ sub pod_file_ok {
 	$self->{_test}{fail};
 }
 
+sub require_installed {
+    my ( $self ) = @_;
+    return $self->{require_installed};
+}
+
 sub _user_agent {
     my ( $self ) = @_;
     return( $self->{_user_agent} ||= HTTP::Tiny->new(
 	    agent	=> $self->agent(),
 	) );
-}
-
-sub agent {
-    my ( $self ) = @_;
-    return $self->{agent};
 }
 
 sub _pass {
@@ -481,10 +512,13 @@ sub _check_external_pod_info {
 	    and $self->_fail(
 	    "$module is installed but undocumented" );
 
-	# If it is in fact an installed module AND there is no section,
-	# we can return success. We go against the link rather than the
-	# section name because the latter could be '0'.
+	# If we get this far it is an installed module with
+	# documentation. We can return success at this point unless the
+	# link specifies a section AND we are checking them. We test the
+	# link rather than the section name because the latter could be
+	# '0'.
 	$link->[1]{section}
+	    and $self->check_external_sections()
 	    or return 0;
 
 	# Find and parse the section info if needed.
@@ -503,6 +537,11 @@ sub _check_external_pod_info {
 	$self->_is_man_page( $link )
 	    and return 0;
     }
+
+    # If we're requiring links to be to installed modules, flunk now.
+    $self->require_installed()
+	and return $self->_fail( $link,
+	'links to module that is not installed' );
 
     # It's not installed on this system, but it may be out there
     # somewhere
@@ -964,10 +1003,21 @@ This argument is the user agent string to use for web access.
 
 The default is that of L<HTTP::Tiny|HTTP::Tiny>.
 
+=item check_external_sections
+
+This Boolean argument is true if the sections of links outside the
+current Pod are to be checked. If it is false, such sections are not
+checked, and the link is considered valid if the external Pod exists at
+all.
+
+The default is true.
+
 =item check_url
 
 This Boolean argument is true if C<url> links are to be checked, and
-false if not. The default is true.
+false if not.
+
+The default is true.
 
 =item ignore_url
 
@@ -1046,6 +1096,14 @@ indices.
 
 By default all indices are considered.
 
+=item require_installed
+
+This Boolean argument is true to disable the uninstalled module checks.
+This means links to modules not installed on the system will fail, even
+if the module exists.
+
+By default this is false.
+
 =back
 
 =head2 agent
@@ -1071,6 +1129,13 @@ is the recommended usage.
 If called in scalar context, this method returns the number of test
 failures encountered. If called in list context it return the number of
 failures, passes, and skipped tests, in that order.
+
+=head2 check_external_sections
+
+ $t->check_external_sections()
+     and say 'Sections in external links are checked';
+
+This method returns the value of the C<'check_url'> attribute.
 
 =head2 check_url
 
@@ -1102,6 +1167,13 @@ test will appear in the TAP output.
 If called in scalar context, this method returns the number of test
 failures encountered. If called in list context it return the number of
 failures, passes, and skipped tests, in that order.
+
+=head2 require_installed
+
+ $t->require_installed()
+    and say 'All POD links must be to installed modules';
+
+This method returns the value of the C<'require_installed'> attribute.
 
 =head1 SEE ALSO
 
