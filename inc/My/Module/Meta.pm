@@ -75,6 +75,7 @@ sub requires {
 	'IPC::Cmd'	=> 0,
 	'Module::Load::Conditional'	=> 0,
 	'Pod::Perldoc'			=> 0,
+	'Pod::Simple'			=> 0,
 	'Pod::Simple::LinkSection'	=> 0,
 	'Pod::Simple::PullParser'	=> 0,
 	'Scalar::Util'	=> 0,

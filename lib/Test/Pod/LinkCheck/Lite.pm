@@ -15,6 +15,7 @@ use HTTP::Tiny;			# Core since 5.13.9
 use IPC::Cmd ();		# Core since 5.9.5
 use Module::Load::Conditional ();	# Core since 5.9.5
 use Pod::Perldoc ();		# Core since 5.8.1
+use Pod::Simple ();		# Core since 5.9.3
 use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
 use Scalar::Util ();		# Core since 5.7.3
 use Storable ();		# Core since 5.7.3
@@ -37,6 +38,8 @@ use constant HASH_REF	=> ref {};
 use constant NON_REF	=> ref 0;
 use constant REGEXP_REF	=> ref qr<x>smx;
 use constant SCALAR_REF	=> ref \0;
+
+use constant NEED_MAN_FIX	=> Pod::Simple->VERSION lt '3.24';
 
 # NOTE that Test::Builder->new() gets us a singleton. For this reason I
 # use $Test::Builder::Level (localized) to get tests reported relative
@@ -417,7 +420,9 @@ sub __build_test_msg {
     my @prefix = ( $self->{_file_name} );
     if ( ARRAY_REF eq ref $msg[0] ) {
 	my $link = shift @msg;
-	my $text = "link L<$link->[1]{raw}>";
+	my $text = defined $link->[1]{raw} ?
+	    "link L<$link->[1]{raw}>" :
+	    'Link L<>';
 	defined $link->[1]{line_number}
 	    and push @prefix, "line $link->[1]{line_number}";
 	push @prefix, $text;
@@ -482,9 +487,18 @@ sub _handle_pod {
 	return $self->_check_external_pod_info( $link )
 
     } elsif ( my $section = $link->[1]{section} ) {
+	$section = "$section";	# Stringify object
 	# Internal links (no {to})
 	$self->{_section}{$section}
 	    and return 0;
+
+	# Before 3.24, Pod::Simple was too restrictive in parsing 'man'
+	# links, and they end up here. The regex is verbatim from
+	# Pod::Simple 3.24.
+	NEED_MAN_FIX
+	    and $section =~ m{^[^/|]+[(][-a-zA-Z0-9]+[)]$}s
+	    and goto &_handle_man;
+
 	return $self->_fail( $link, 'links to unknown section' );
 
     } else {
@@ -542,12 +556,23 @@ sub _check_external_pod_info {
 	return $self->_fail( $link, 'links to unknown section' );
     }
 
+=begin comment
+
+    # The following code was cargo-culted in from Test::Pod::LinkCheck.
+    # But I am unsure if it ever actually catches any man links. The
+    # case I have had trouble with parses (in my own parlance) as a
+    # local link -- i.e. the link has a {section} key but no {to} key/
+
     # If there is no section, it might be a man page, even though the
     # parser did not parse it as one
     unless ( $section ) {
 	$self->_is_man_page( $link )
 	    and return 0;
     }
+
+=end comment
+
+=cut
 
     # If we're requiring links to be to installed modules, flunk now.
     $self->require_installed()

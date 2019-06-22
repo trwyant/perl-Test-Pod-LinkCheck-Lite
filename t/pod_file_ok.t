@@ -89,13 +89,15 @@ use constant REGEXP_REF	=> ref qr{};
     $t->pod_file_ok( \'' );
 
     {
-	my $fail;
+	my ( $fail, $pass, $skip );
+
 	TODO: {
 	    local $TODO = 'Deliberate failure';
-	    $fail = $t->pod_file_ok( 't/data/nonexistent.pod' );
+	    ( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/nonexistent.pod' );
 	}
 	cmp_ok $fail, '==', 1,
-	'Got expected failure checking non-existent file';
+	'Got expected failure checking non-existent file'
+	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
     $t->pod_file_ok( 't/data/empty.pod' );
@@ -110,7 +112,15 @@ use constant REGEXP_REF	=> ref qr{};
 	$t->man()
 	    or skip 'This system does not support the testing of man links', 1;
 
-	$t->pod_file_ok( 't/data/man.pod' );
+	my ( $fail, $pass, $skip );
+
+	( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/man.pod' )
+	    or do {
+	    diag "Fail = $fail; pass = $pass; skip = $skip";
+	    # TODO ditch the following once I have sorted out the test
+	    # failure
+	    diag 'Links found: ', explain $t->{_links};
+	};
     }
 
     $t->pod_file_ok( 't/data/internal.pod' );
@@ -121,14 +131,16 @@ use constant REGEXP_REF	=> ref qr{};
     # ones.
 
     {
-	my $errors;
+	my ( $fail, $pass, $skip );
 
 	TODO: {
 	    local $TODO = 'Deliberate test failures.';
-	    $errors = $t->pod_file_ok( 't/data/internal_error.pod' );
+	    ( $fail, $pass, $skip ) = $t->pod_file_ok(
+		't/data/internal_error.pod' );
 	}
 
-	cmp_ok $errors, '==', 2, 't/data/internal_error.pod had 2 errors';
+	cmp_ok $fail, '==', 2, 't/data/internal_error.pod had 2 errors'
+	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
     $t->pod_file_ok( 't/data/external_builtin.pod' );
@@ -152,16 +164,17 @@ use constant REGEXP_REF	=> ref qr{};
     }
 
     {
-	my $errors;
+	my ( $fail, $pass, $skip );
 
 	TODO: {
 	    local $TODO = 'Deliberate test failures.';
-	    $errors = $t->pod_file_ok(
+	    ( $fail, $pass, $skip ) = $t->pod_file_ok(
 		't/data/external_installed_bad_section.pod' );
 	}
 
-	cmp_ok $errors, '==', 1,
-	    't/data/external_installed_bad_section.pod had 1 error';
+	cmp_ok $fail, '==', 1,
+	    't/data/external_installed_bad_section.pod had 1 error'
+	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
     $t->pod_file_ok( 't/data/external_installed_pod.pod' );
@@ -192,17 +205,23 @@ use constant REGEXP_REF	=> ref qr{};
 	require_installed	=> 1,
     );
 
-    my $errors;
+    my ( $fail, $pass, $skip );
 
     TODO: {
 	note 'The following test should fail because require_installed => 1';
 	local $TODO = 'Deliberate test failure.';
-	$errors = $t->pod_file_ok(
+	( $fail, $pass, $skip ) = $t->pod_file_ok(
 	    't/data/external_uninstalled.pod' );
     }
 
-    cmp_ok $errors, '==', 1,
-    't/data/external_uninstalled.pod fails without uninstalled module checking';
+    cmp_ok $fail, '==', 1,
+    't/data/external_uninstalled.pod fails without uninstalled module checking'
+	or do {
+	diag "Fail = $fail; pass = $pass; skip = $skip";
+	# TODO ditch the following once I have sorted out the test
+	# failure
+	diag 'Links found: ', explain $t->{_links};
+    };
 }
 
 foreach my $check_url ( 0, 1 ) {
