@@ -1,3 +1,10 @@
+0.000_903	2019-06-22	T. R. Wyant
+    Address test failures with Pod::Simple < 3.24. The problem was that
+    'man' links were being misclassified as 'pod' links. Rather than
+    require Pod::Simple 3.24 I lifted the regex from that version.
+
+    Add accessor for ignore_url attribute.
+
 0.000_902	2019-06-21	T. R. Wyant
     Correct external installed section test. I wanted to skip it if
     Scalar::Util's version was less than 1.40, but I did not read the
