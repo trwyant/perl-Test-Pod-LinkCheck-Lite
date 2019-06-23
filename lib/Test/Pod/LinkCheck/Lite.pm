@@ -890,6 +890,8 @@ sub __token_end {
 
 __END__
 
+=encoding utf8
+
 =head1 NAME
 
 Test::Pod::LinkCheck::Lite - Test POD links
@@ -1222,15 +1224,32 @@ This method returns the value of the C<'require_installed'> attribute.
 
 =head1 SEE ALSO
 
-L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> by Apocalypse checks all
-POD links except for URLs. It is L<Moose|Moose>-based.
+L<Test::Pod::LinkCheck|Test::Pod::LinkCheck> by Apocalypse (C<APOCAL>)
+checks all POD links except for URLs. It is L<Moose|Moose>-based.
 
-L<Test::Pod::Links|Test::Pod::Links> by Sven Kirmess checks all URLs or
-URL-like things in the document, whether or not they are actual POD
-links.
+L<Test::Pod::Links|Test::Pod::Links> by Sven Kirmess (C<SKIRMESS>)
+checks all URLs or URL-like things in the document, whether or not they
+are actual POD links.
 
-L<Test::Pod::No404s|Test::Pod::No404s> by Apocalypse checks URL POD
-links.
+L<Test::Pod::No404s|Test::Pod::No404s> by Apocalypse (C<APOCAL>) checks
+URL POD links.
+
+=head1 ACKNOWLEDGMENTS
+
+The author would like to acknowledge the following, without whom this
+module would not exist -- at least, not in anything like its current
+form.
+
+Mohammed Anwar (C<MANWAR>) who submitted the "broken POD link" ticket
+that started me thinking about testing for this kind of thing.
+
+The CPAN Testers who, by testing my code under such a broad range of
+configurations, gave me an opportunity to make this module much more
+robust than it would otherwise have been. It is probably unfair to
+single out individual testers, but as the luck of the testing cycle
+would have it, results from Andreas J. König (C<ANDK>), Slaven Rezić
+(C<SREZIC>), and Chris Williams (C<BINGOS>) were particularly useful to
+me.
 
 =head1 SUPPORT
 

@@ -20,9 +20,15 @@ all_pod_files_spelling_ok ();
 
 1;
 __DATA__
+Andreas
+Anwar
 deponent
 Kirmess
+König
+Mohammed
 merchantability
 recursed
+Rezić
 sayeth
+Slaven
 Wyant
