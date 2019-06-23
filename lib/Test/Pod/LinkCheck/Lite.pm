@@ -910,13 +910,19 @@ Test::Pod::LinkCheck::Lite - Test POD links
 
 This Perl module tests POD links. A given file generates one failure for
 each broken link found. If no broken links are found, one passing test
-is generated. This all means that you can not know how many tests will
-be generated, and you will need to use L<Test::More|Test::More>'s
-C<done_testing()> at the end of your test.
+is generated. This all means that there is no way to know how many tests
+will be generated, and you will need to use L<Test::More|Test::More>'s
+C<done_testing()> (or something equivalent) at the end of your test.
+
+By its nature this module should be used only for author testing. The
+problem with using it in an installation test is that the validity of
+links external to the distribution being tested varies with things like
+operating system type and version, Perl version, installed Perl modules
+and their versions, and the Internet at large. I<Caveat user.>
 
 This module should probably be considered alpha-quality code at this
-point. It correctly checks most of my modest corpus, but beyond that
-deponent sayeth not.
+point. It checks most of my modest corpus (correctly, I hope), but
+beyond that deponent sayeth not.
 
 This module started its life as a low-dependency version of
 L<Test::Pod::LinkCheck|Test::Pod::LinkCheck>. Significant
