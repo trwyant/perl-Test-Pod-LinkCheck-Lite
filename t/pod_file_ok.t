@@ -9,6 +9,16 @@ use IPC::Cmd qw{ run };
 use Module::Load::Conditional qw{ check_install };
 use Test::More 0.88;	# Because of done_testing();
 
+# The following is a random 64-character command name generated from
+# characters in the set [0-9A-Za-z_-]. My previous try was 'bad cmd',
+# which did not work as advertized under FreeBSD. Under that OS, the
+# argument appeard to be split on space by C<man -w>, and since C<man>
+# is a valid manpage, the returned status was 0. If you change this,
+# make sure the link in t/data/man_bad.pod is changed to match.
+
+use constant RANDOM_CMD =>
+    '2d8S4rU0svlIoqpA01ntUV1w_NWiKZ8TvSbbhnmYkvLPCHhv8ccYxCLIXNlQcnVv';
+
 # This mess is because if Devel::Hide or Test::Without::Module is
 # specified on the command line or in an enclosing file, a straight
 # 'use lib qw{ inc/Mock }' would trump it, and the mocked modules would
@@ -123,8 +133,9 @@ use constant REGEXP_REF	=> ref qr{};
 	    diag 'Links found: ', explain $t->{_links};
 	};
 
-	run( COMMAND => [ qw{ man -w 1 }, 'bad man' ] )
-	    and skip q<Against all expectation, 'bad man' is an actual man page; skipping this test>, 1;
+	run( COMMAND => [ qw{ man -w 1 }, RANDOM_CMD ] )
+	    and skip "Against all expectation, '@{[ RANDOM_CMD
+		]}' is an actual man page; skipping this test", 1;
 
 	TODO: {
 	    local $TODO = 'Deliberate failure';
