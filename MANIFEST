@@ -29,6 +29,7 @@ t/data/external_uninstalled.pod
 t/data/internal.pod
 t/data/internal_error.pod
 t/data/man.pod
+t/data/man_bad.pod
 t/data/no_links.pod
 t/data/url_links.pod
 t/pod_file_ok.t

@@ -495,9 +495,15 @@ sub _handle_pod {
 	# Before 3.24, Pod::Simple was too restrictive in parsing 'man'
 	# links, and they end up here. The regex is verbatim from
 	# Pod::Simple 3.24.
-	NEED_MAN_FIX
-	    and $section =~ m{^[^/|]+[(][-a-zA-Z0-9]+[)]$}s
-	    and goto &_handle_man;
+	if ( NEED_MAN_FIX && $section =~ m{^[^/|]+[(][-a-zA-Z0-9]+[)]$}s ) {
+	    # The misparse left the actual link text in {section}, but
+	    # an honest-to-God Pod link has it in {to}.
+	    $link->[1]{to} = delete $link->[1]{section};
+	    # While we're at it, we might as well make it an actual
+	    # 'man' link.
+	    $link->[1]{type} = 'man';
+	    goto &_handle_man;
+	}
 
 	return $self->_fail( $link, 'links to unknown section' );
 
@@ -748,9 +754,11 @@ sub _handle_url {
     }
 }
 
+# Returns true if the link refers to a man page, false (but defined) if
+# it does not, and undef if it could not be checked.
 sub _is_man_page {
     my ( $self, $link ) = @_;
-    $self->{man}
+    $self->man()
 	or return;
     $link->[1]{to}
 	or return;
@@ -762,7 +770,7 @@ sub _is_man_page {
 	$page,
     );
     return $self->{_cache}{man}{"@pg"} ||= IPC::Cmd::run( COMMAND => [
-	    qw{ man -w }, @pg ] );
+	    qw{ man -w }, @pg ] ) || 0;
 }
 
 sub _is_perl_file {

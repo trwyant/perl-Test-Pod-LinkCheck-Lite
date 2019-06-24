@@ -121,6 +121,14 @@ use constant REGEXP_REF	=> ref qr{};
 	    # failure
 	    diag 'Links found: ', explain $t->{_links};
 	};
+
+	TODO: {
+	    local $TODO = 'Deliberate failure';
+	    ( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/man_bad.pod' );
+	}
+	cmp_ok $fail, '==', 1,
+	'Got expected failure checking non-existent man page'
+	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
     $t->pod_file_ok( 't/data/internal.pod' );
