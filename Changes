@@ -1,3 +1,10 @@
+0.000_906	2019-06-24	T. R. Wyant
+    Fix test for link to non-existent man page.
+
+    Remake mocked data under Storable 2.04 because that is what ships
+    with Perl 5.8.0. This turned out to be a problem when testing under
+    5.8.4.
+
 0.000_905	2019-06-24	T. R. Wyant
     Tweak man link testing: Skip correct number of tests if we can't do
     man page tests; Skip the bad link test if our contrived bad manpage
