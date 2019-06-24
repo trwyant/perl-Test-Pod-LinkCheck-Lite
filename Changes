@@ -1,3 +1,8 @@
+0.000_905	2019-06-24	T. R. Wyant
+    Tweak man link testing: Skip correct number of tests if we can't do
+    man page tests; Skip the bad link test if our contrived bad manpage
+    turns out to be good after all.
+
 0.000_904	2019-06-23	T. R. Wyant
     Fix man link bug: bad links were reported as skip because
     ICP::Cmd::run was returning undef on failure rather than a
