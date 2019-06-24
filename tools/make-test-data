@@ -6,20 +6,32 @@ use strict;
 use warnings;
 
 use File::Spec;
-use Getopt::Long 2.33 qw{ :config auto_version };
-use Pod::Usage;
 use Storable qw{ nstore };
 
-our $VERSION = '0.000_01';
+our $VERSION = '0.000_905';
 
 use constant CPAN_INDEX	=> 't/data/_cpan/Metadata';
 
-my %opt;
+if ( $ARGV[0] =~ m/ \A --? help \z /smx ) {
+    print STDERR <<'EOD';
 
-GetOptions( \%opt,
-    qw{ force! },
-    help => sub { pod2usage( { -verbose => 2 } ) },
-) or pod2usage( { -verbose => 0 } );
+Generate the module indices used by the various mock objects
+
+Usage:
+
+ $ make-test-data
+ $ make-test-data -help
+
+This program requires Storable 2.04, becaue that is what ships with Perl
+5.8.0.
+
+EOD
+    exit 1;
+}
+
+Storable->VERSION le '2.04'
+    or die 'Storable 2.04 or less required; you have ',
+	Storable->VERSION, "\n";
 
 my %index = (
     'Invalid module'		=> 1,
@@ -40,9 +52,6 @@ foreach my $info (
 	or mkdir $dir
 	or die "Unable to mkdir $dir: $!";
     my $path = File::Spec->catfile( $dir, $fn );
-    not $opt{force}
-	and -e $path
-	and next;
     nstore( { $key => \%index }, $path );
 }
 
@@ -53,9 +62,6 @@ foreach my $info (
 	or mkdir $dir
 	or die "Unable to mkdir $dir: $!";
     my $path = File::Spec->catfile( $dir, $fn );
-    not $opt{force}
-	and -e $path
-	and next;
     my %status = map { $_ => 200 } qw{
 	https://metacpan.org/release/Test-Pod-LinkCheck
 	https://cpanmetadb.plackperl.org/
@@ -76,27 +82,15 @@ make-test-data - Generate the module indices used by the various mock objects
 =head1 SYNOPSIS
 
  tools/make-test-data
- tools/make-test-data -force
  tools/make-test-data -help
- tools/make-test-data -version
 
 =head1 OPTIONS
 
-=head2 -force
-
-If this Boolean option is asserted, the test data files are generated
-even if they already exist.
-
-The default is C<-noforce>.
 
 =head2 -help
 
 This option displays the documentation for this script. The script then
 exits.
-
-=head2 -version
-
-This option displays the version of this script. The script then exits.
 
 =head1 DETAILS
 
