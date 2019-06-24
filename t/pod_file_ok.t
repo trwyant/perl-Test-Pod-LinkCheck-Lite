@@ -5,6 +5,7 @@ use 5.008;
 use strict;
 use warnings;
 
+use IPC::Cmd qw{ run };
 use Module::Load::Conditional qw{ check_install };
 use Test::More 0.88;	# Because of done_testing();
 
@@ -110,7 +111,7 @@ use constant REGEXP_REF	=> ref qr{};
 
     SKIP: {
 	$t->man()
-	    or skip 'This system does not support the testing of man links', 1;
+	    or skip 'This system does not support the testing of man links', 2;
 
 	my ( $fail, $pass, $skip );
 
@@ -121,6 +122,9 @@ use constant REGEXP_REF	=> ref qr{};
 	    # failure
 	    diag 'Links found: ', explain $t->{_links};
 	};
+
+	run( COMMAND => [ qw{ man -w 1 }, 'bad man' ] )
+	    and skip q<Against all expectation, 'bad man' is an actual man page; skipping this test>, 1;
 
 	TODO: {
 	    local $TODO = 'Deliberate failure';
