@@ -57,15 +57,7 @@ use constant REGEXP_REF	=> ref qr{};
     my $t = Test::Pod::LinkCheck::Lite->new();
 
     diag '';
-    diag q<Default 'check_external_sections' is >,
-	Boolean( $t->check_external_sections() );
-    diag q<Default 'check_url' is >, Boolean( $t->check_url() );
-    diag q<Default 'ignore_url' is >, explain scalar $t->ignore_url();
-    diag q<Default 'man' is >, Boolean( $t->man() );
-    diag q<Default 'module_index' is ( >, join( ', ', map { "'$_'" }
-	$t->module_index() ), ' )';
-    diag q<Default 'require_installed' is >,
-	Boolean( $t->require_installed() );
+    diag $t->configuration( 'Default' );
 
     # Encapsulation violation for testing purposes. DO NOT try this at
     # home.

@@ -39,6 +39,10 @@ use constant NON_REF	=> ref 0;
 use constant REGEXP_REF	=> ref qr<x>smx;
 use constant SCALAR_REF	=> ref \0;
 
+# Pod::Simple versions earlier than this were too restrictive in
+# recognizing 'man' links, so some valid ones ended up classified as
+# 'pod'. We conditionalize fix-up code on this constant so that, if the
+# fix-up is not needed, the optimizer ditches it.
 use constant NEED_MAN_FIX	=> Pod::Simple->VERSION lt '3.24';
 
 # NOTE that Test::Builder->new() gets us a singleton. For this reason I
@@ -270,6 +274,33 @@ sub check_external_sections {
 sub check_url {
     my ( $self ) = @_;
     return $self->{check_url}
+}
+
+sub configuration {
+    my ( $self, $leader ) = @_;
+
+    defined $leader
+	or $leader = '';
+    $leader =~ s/ (?<= \S ) \z / /smx;
+
+    my ( $ignore_url ) = $TEST->explain( scalar $self->ignore_url() );
+    chomp $ignore_url;
+
+    return <<"EOD";
+${leader}'check_external_sections' is @{[ _Boolean(
+    $self->check_external_sections() ) ]}
+${leader}'check_url' is @{[ _Boolean( $self->check_url() ) ]}
+${leader}'ignore_url' is $ignore_url
+${leader}'man' is @{[ _Boolean( $self->man() ) ]}
+${leader}'module_index' is ( @{[ join ', ', map { "'$_'" }
+    $self->module_index() ]} )
+${leader}'require_installed' is @{[ _Boolean( $self->require_installed() ) ]}
+EOD
+}
+
+sub _Boolean {
+    my ( $value ) = @_;
+    return $value ? 'true' : 'false';
 }
 
 sub ignore_url {
@@ -1177,6 +1208,14 @@ This method returns the value of the C<'check_url'> attribute.
  $t->check_url() and say 'URL links are checked';
 
 This method returns the value of the C<'check_url'> attribute.
+
+=head2 configuration
+
+ say $t->configuration( '    ' );
+
+This convenience method returns a string containing all attributes of
+the object in human-readable form. The argument, if any, is prefixed to
+each line of the returned string.
 
 =head2 ignore_url
 
