@@ -469,13 +469,33 @@ sub _get_installed_doc_info {
 # POD link handlers
 
 # Handle a 'man' link.
+
 sub _handle_man {
     my ( $self, $link ) = @_;
-    my $rslt = $self->_is_man_page( $link )
+
+    $self->man()
+	or return $self->_skip( $link, 'not checked; man checks disabled' );
+
+    $link->[1]{to}
+	or return $self->_fail( $link, 'no man page specified' );
+
+    my ( $page, $sect ) = $link->[1]{to} =~ m/
+	    ( [^(]+ ) (?: [(] ( [^)]+ ) [)] )? /smx
+	or return $self->_fail( $link, 'not recognized as man page spec' );
+
+    $page =~ s/ \A \s+ //smx;
+    $page =~ s/ \s+ \z //smx;
+
+    my @pg = (
+	$sect ? $sect : (),
+	$page,
+    );
+
+    ( $self->{_cache}{man}{"@pg"} ||= IPC::Cmd::run( COMMAND => [
+		qw{ man -w }, @pg ] ) || 0 )
 	and return 0;
-    defined $rslt
-	and return $self->_fail( $link, 'refers to unknown man page' );
-    return $self->_skip( $link, 'not checked; man checks disabled' );
+
+    return $self->_fail( $link, 'refers to unknown man page' );
 }
 
 # Handle pod links. This is pretty much everything, except for 'man'
@@ -561,24 +581,6 @@ sub _check_external_pod_info {
 
 	return $self->_fail( $link, 'links to unknown section' );
     }
-
-=begin comment
-
-    # The following code was cargo-culted in from Test::Pod::LinkCheck.
-    # But I am unsure if it ever actually catches any man links. The
-    # case I have had trouble with parses (in my own parlance) as a
-    # local link -- i.e. the link has a {section} key but no {to} key/
-
-    # If there is no section, it might be a man page, even though the
-    # parser did not parse it as one
-    unless ( $section ) {
-	$self->_is_man_page( $link )
-	    and return 0;
-    }
-
-=end comment
-
-=cut
 
     # If we're requiring links to be to installed modules, flunk now.
     $self->require_installed()
@@ -752,25 +754,6 @@ sub _handle_url {
 
 	return 1;
     }
-}
-
-# Returns true if the link refers to a man page, false (but defined) if
-# it does not, and undef if it could not be checked.
-sub _is_man_page {
-    my ( $self, $link ) = @_;
-    $self->man()
-	or return;
-    $link->[1]{to}
-	or return;
-    my ( $page, $sect ) = $link->[1]{to} =~ m/ ( [^(]+ ) (?: [(] ( [^)]+ ) [)] )? /smx
-	or return;
-    $page =~ s/ \s+ \z //smx;
-    my @pg = (
-	$sect ? $sect : (),
-	$page,
-    );
-    return $self->{_cache}{man}{"@pg"} ||= IPC::Cmd::run( COMMAND => [
-	    qw{ man -w }, @pg ] ) || 0;
 }
 
 sub _is_perl_file {
