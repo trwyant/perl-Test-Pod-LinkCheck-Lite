@@ -1,3 +1,11 @@
+0.000_907	2019-06-26	T. R. Wyant
+    Prohibit spaces in man page links because FreeBSD can not check them
+    properly.
+
+    Add attribute allow_man_spaces to allow them again.
+
+    Add convenience method configuration().
+
 0.000_906	2019-06-24	T. R. Wyant
     Fix test for link to non-existent man page.
 
