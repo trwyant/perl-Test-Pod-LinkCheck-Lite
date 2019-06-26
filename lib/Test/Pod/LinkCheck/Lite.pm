@@ -88,6 +88,10 @@ sub _default_agent {
     return HTTP::Tiny->new()->agent();
 }
 
+sub _default_allow_man_spaces {
+    return 0;
+}
+
 sub _default_check_external_sections {
     return 1;
 }
@@ -134,6 +138,12 @@ sub _default_require_installed {
 sub _init_agent {
     my ( $self, $name, $value ) = @_;
     $self->{$name} = $value;
+    return;
+}
+
+sub _init_allow_man_spaces {
+    my ( $self, $name, $value ) = @_;
+    $self->{$name} = $value ? 1 : 0;
     return;
 }
 
@@ -266,6 +276,11 @@ sub all_pod_files_ok {
     return wantarray ? ( $fail, $pass, $skip ) : $fail;
 }
 
+sub allow_man_spaces {
+    my ( $self ) = @_;
+    return $self->{allow_man_spaces}
+}
+
 sub check_external_sections {
     my ( $self ) = @_;
     return $self->{check_external_sections}
@@ -287,6 +302,9 @@ sub configuration {
     chomp $ignore_url;
 
     return <<"EOD";
+${leader}'agent' is '@{[ $self->agent() ]}'
+${leader}'allow_man_spaces' is @{[ _Boolean(
+    $self->allow_man_spaces() ) ]}
 ${leader}'check_external_sections' is @{[ _Boolean(
     $self->check_external_sections() ) ]}
 ${leader}'check_url' is @{[ _Boolean( $self->check_url() ) ]}
@@ -516,6 +534,10 @@ sub _handle_man {
 
     $page =~ s/ \A \s+ //smx;
     $page =~ s/ \s+ \z //smx;
+
+    $page =~ m/ \s /smx
+	and not $self->allow_man_spaces()
+	and return $self->_fail( $link, 'contains embedded spaces' );
 
     my @pg = (
 	$sect ? $sect : (),
@@ -1069,6 +1091,15 @@ This argument is the user agent string to use for web access.
 
 The default is that of L<HTTP::Tiny|HTTP::Tiny>.
 
+=item allow_man_spaces
+
+This Boolean argument is set true to allow internal spaces in a 'man'
+link. B<Note> that such links can not be checked under some operating
+systems (e.g. FreeBSD) because the L<man (1)> program splits its
+arguments on spaces.
+
+The default is false.
+
 =item check_external_sections
 
 This Boolean argument is true if the sections of links outside the
@@ -1195,6 +1226,13 @@ is the recommended usage.
 If called in scalar context, this method returns the number of test
 failures encountered. If called in list context it return the number of
 failures, passes, and skipped tests, in that order.
+
+=head2 allow_man_spaces
+
+ $t->allow_man_spaces()
+   and say 'Embedded spaces are allowed in man page names';
+
+This method returns the value of the C<'allow_man_spaces'> attribute.
 
 =head2 check_external_sections
 
