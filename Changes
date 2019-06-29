@@ -1,3 +1,14 @@
+0.000_908	2019-06-29	T. R. Wyant
+    Have all_pod_files_ok() also check .pod files. This involved a
+    refactor of the .pod files from t/data into t/data/pod_ok (valid
+    POD) and t/data/not_ok (invalid POD) so that all_pod_files_ok()
+    would pass.
+    
+    Also eliminated some dead code.
+    
+    Interesting what happens when you look at your test coverage and start
+    asking questions.
+
 0.000_907	2019-06-26	T. R. Wyant
     Prohibit spaces in man page links because FreeBSD can not check them
     properly.

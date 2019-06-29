@@ -10,7 +10,7 @@ use Pod::Usage;
 use Test::More 0.88;
 use Test::Pod::LinkCheck::Lite;
 
-our $VERSION = '0.000_907';
+our $VERSION = '0.000_908';
 
 my %opt = (
     ignore_url	=> [],
