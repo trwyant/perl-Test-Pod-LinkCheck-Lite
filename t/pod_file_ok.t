@@ -80,6 +80,23 @@ use constant REGEXP_REF	=> ref qr{};
 	], 'checked' ),
 	'File fu.bar line 42 link L<Bazzle> checked',
 	'Test message with line number and link';
+
+    foreach my $file ( qw{
+	Makefile.PL t/basic.t t/data/pod_ok/empty.pod
+	lib/Test/Pod/LinkCheck/Lite.pm
+	eg/test-pod-links
+	} ) {
+
+	ok $t->_is_perl_file( $file ), "$file is a Perl file";
+    }
+
+    foreach my $file ( qw{
+	t/data/not_ok/nonexistent.pod
+	t/data/_cpan/Metadata
+	} ) {
+
+	ok ! $t->_is_perl_file( $file ), "$file is not a Perl file";
+    }
 }
 
 {
@@ -96,20 +113,20 @@ use constant REGEXP_REF	=> ref qr{};
 
 	TODO: {
 	    local $TODO = 'Deliberate failure';
-	    ( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/nonexistent.pod' );
+	    ( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/not_ok/nonexistent.pod' );
 	}
 	cmp_ok $fail, '==', 1,
 	'Got expected failure checking non-existent file'
 	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
-    $t->pod_file_ok( 't/data/empty.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/empty.pod' );
 
-    $t->pod_file_ok( 't/data/no_links.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/no_links.pod' );
 
-    @rslt = $t->pod_file_ok( 't/data/url_links.pod' );
+    @rslt = $t->pod_file_ok( 't/data/pod_ok/url_links.pod' );
     is_deeply \@rslt, [ 0, 1, 0 ],
-	'Test of t/data/url_links.pod returned proper data';
+	'Test of t/data/pod_ok/url_links.pod returned proper data';
 
     SKIP: {
 	$t->man()
@@ -117,7 +134,7 @@ use constant REGEXP_REF	=> ref qr{};
 
 	my ( $fail, $pass, $skip );
 
-	( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/man.pod' )
+	( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/pod_ok/man.pod' )
 	    or do {
 	    diag "Fail = $fail; pass = $pass; skip = $skip";
 	    # TODO ditch the following once I have sorted out the test
@@ -131,14 +148,14 @@ use constant REGEXP_REF	=> ref qr{};
 
 	TODO: {
 	    local $TODO = 'Deliberate failure';
-	    ( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/man_bad.pod' );
+	    ( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/not_ok/man_bad.pod' );
 	}
 	cmp_ok $fail, '==', 1,
 	'Got expected failure checking non-existent man page'
 	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
-    $t->pod_file_ok( 't/data/internal.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/internal.pod' );
 
     # This circumlocution will be used for tests where errors are
     # expected.  Unfortunately it only tests that the correct number of
@@ -151,16 +168,16 @@ use constant REGEXP_REF	=> ref qr{};
 	TODO: {
 	    local $TODO = 'Deliberate test failures.';
 	    ( $fail, $pass, $skip ) = $t->pod_file_ok(
-		't/data/internal_error.pod' );
+		't/data/not_ok/internal_error.pod' );
 	}
 
-	cmp_ok $fail, '==', 2, 't/data/internal_error.pod had 2 errors'
+	cmp_ok $fail, '==', 2, 't/data/not_ok/internal_error.pod had 2 errors'
 	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
-    $t->pod_file_ok( 't/data/external_builtin.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/external_builtin.pod' );
 
-    $t->pod_file_ok( 't/data/external_installed.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/external_installed.pod' );
 
     SKIP: {
 
@@ -174,7 +191,7 @@ use constant REGEXP_REF	=> ref qr{};
 	    or skip
 	    "External section check needs Scalar::Util version $version", 1;
 
-	$t->pod_file_ok( 't/data/external_installed_section.pod' );
+	$t->pod_file_ok( 't/data/pod_ok/external_installed_section.pod' );
 
     }
 
@@ -184,23 +201,25 @@ use constant REGEXP_REF	=> ref qr{};
 	TODO: {
 	    local $TODO = 'Deliberate test failures.';
 	    ( $fail, $pass, $skip ) = $t->pod_file_ok(
-		't/data/external_installed_bad_section.pod' );
+		't/data/not_ok/external_installed_bad_section.pod' );
 	}
 
 	cmp_ok $fail, '==', 1,
-	    't/data/external_installed_bad_section.pod had 1 error'
+	    't/data/not_ok/external_installed_bad_section.pod had 1 error'
 	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
-    $t->pod_file_ok( 't/data/external_installed_pod.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/external_installed_pod.pod' );
 
-    $t->pod_file_ok( 't/data/external_uninstalled.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/external_uninstalled.pod' );
 
-    $t->pod_file_ok( 't/data/bug_leading_format_code.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/bug_leading_format_code.pod' );
 
-    $t->pod_file_ok( 't/data/bug_recursion.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/bug_recursion.pod' );
 
-    $t->all_pod_files_ok( 't/data' );
+    note q<Testing all_pod_files_ok( 't/data/pod_ok' )>;
+    $t->all_pod_files_ok( 't/data/pod_ok' );
+    note q<Done testing all_pod_files_ok( 't/data/pod_ok' )>;
 
 }
 
@@ -211,7 +230,7 @@ use constant REGEXP_REF	=> ref qr{};
 
     note 'The following test should pass because check_external_sections => 0';
     $t->pod_file_ok(
-	't/data/external_installed_bad_section.pod' );
+	't/data/not_ok/external_installed_bad_section.pod' );
 
 }
 
@@ -226,11 +245,11 @@ use constant REGEXP_REF	=> ref qr{};
 	note 'The following test should fail because require_installed => 1';
 	local $TODO = 'Deliberate test failure.';
 	( $fail, $pass, $skip ) = $t->pod_file_ok(
-	    't/data/external_uninstalled.pod' );
+	    't/data/pod_ok/external_uninstalled.pod' );
     }
 
     cmp_ok $fail, '==', 1,
-    't/data/external_uninstalled.pod fails without uninstalled module checking'
+    't/data/pod_ok/external_uninstalled.pod fails without uninstalled module checking'
 	or do {
 	diag "Fail = $fail; pass = $pass; skip = $skip";
 	# TODO ditch the following once I have sorted out the test
@@ -247,13 +266,13 @@ foreach my $check_url ( 0, 1 ) {
     note "Test with explicitly-specified check_url => $check_url";
 
     if ( $check_url ) {
-	$t->pod_file_ok( 't/data/url_links.pod' );
+	$t->pod_file_ok( 't/data/pod_ok/url_links.pod' );
     } else {
 	my $errors = $t->pod_file_ok(
-	    't/data/url_links.pod' );
+	    't/data/pod_ok/url_links.pod' );
 
 	cmp_ok $errors, '==', 0,
-	    't/data/url_links.pod error count with url checks disabled';
+	    't/data/pod_ok/url_links.pod error count with url checks disabled';
     }
 }
 
@@ -309,9 +328,9 @@ foreach my $check_url ( 0, 1 ) {
 	ignore_url	=> qr< \Q//metacpan.org/\E >smx,
     );
 
-    my @rslt = $t->pod_file_ok( 't/data/url_links.pod' );
+    my @rslt = $t->pod_file_ok( 't/data/pod_ok/url_links.pod' );
     is_deeply \@rslt, [ 0, 1, 1 ],
-	'Test of t/data/url_links.pod returned proper data when ignoring URL';
+	'Test of t/data/pod_ok/url_links.pod returned proper data when ignoring URL';
 }
 
 foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
@@ -324,7 +343,7 @@ foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
 
     note "Test with module_index => $mi";
 
-    $t->pod_file_ok( 't/data/external_uninstalled.pod' );
+    $t->pod_file_ok( 't/data/pod_ok/external_uninstalled.pod' );
 }
 
 done_testing;

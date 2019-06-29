@@ -206,7 +206,7 @@ sub _init_check_url {
 	    $handler{ ref $value }->( $spec, $value );
 	    1;
 	} or Carp::confess(
-	    "Invalid ignore_url value '$value': must be scalar, regexp, array ref, or undef" );
+	    "Invalid ignore_url value '$value': must be scalar, regexp, array ref, hash ref, code ref, or undef" );
 	return;
     }
 }
@@ -236,13 +236,6 @@ sub _init_require_installed {
     my ( $self, $name, $value ) = @_;
     $self->{$name} = $value ? 1 : 0;
     return;
-}
-
-sub _process_array_argument {
-    my ( $arg ) = @_;
-    ARRAY_REF eq ref $arg
-	or $arg = [ $arg ];
-    return [ map { split qr< \s*, \s* >smx } @{ $arg } ];
 }
 
 sub agent {
@@ -814,7 +807,7 @@ sub _is_perl_file {
     -e $path
 	and -T _
 	or return;
-    $path =~ m/ [.] (?: (?i: pl ) | pm | t ) /smx
+    $path =~ m/ [.] (?: (?i: pl ) | pm | pod | t ) \z /smx
 	and return 1;
     open my $fh, '<', $path
 	or return;
@@ -861,11 +854,6 @@ sub new {
     return $self;
 }
 
-sub links {
-    my ( $self ) = @_;
-    return @{ $self->{My_Parser}{links} };
-}
-
 sub run {
     my ( $self, $source, $err, @err_arg ) = @_;
 	defined $source
@@ -883,11 +871,6 @@ sub run {
     return wantarray ?
 	( $attr->{sections}, $attr->{links} ) :
 	$attr->{sections};
-}
-
-sub sections {
-    my ( $self ) = @_;
-    return @{ $self->_attr()->{sections} };
 }
 
 sub _attr {
@@ -1135,15 +1118,15 @@ No URLs are ignored.
 
 This URL is ignored.
 
-=item a scalar reference
+=item a SCALAR reference
 
 The URL referred to is ignored.
 
-=item a hash reference
+=item a HASH reference
 
 The URL is ignored if the hash contains a true value for the URL.
 
-=item a code reference
+=item a CODE reference
 
 The code is called with the URL to ignore in the topic variable (a.k.a.
 C<$_>). The URL is ignored if the code returns a true value.
@@ -1166,7 +1149,7 @@ right to change without warning.
 
 This Boolean argument is true if C<man> links are to be checked, and
 false if not. The default is the value of C<IPC::Cmd::can_run( 'man' )>.
-If this returns false a warning is generated, and C<man> links are not
+If this returns false a diagnostic is generated, and C<man> links are not
 checked.
 
 =item module_index
