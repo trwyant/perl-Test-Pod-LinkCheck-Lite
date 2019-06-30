@@ -175,6 +175,8 @@ use constant REGEXP_REF	=> ref qr{};
 	    or diag "Fail = $fail; pass = $pass; skip = $skip";
     }
 
+    $t->pod_file_ok( 't/data/pod_ok/bug_line_break.pod' );
+
     $t->pod_file_ok( 't/data/pod_ok/external_builtin.pod' );
 
     $t->pod_file_ok( 't/data/pod_ok/external_installed.pod' );

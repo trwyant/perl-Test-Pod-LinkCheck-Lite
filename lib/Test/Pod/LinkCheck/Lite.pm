@@ -525,7 +525,6 @@ sub _handle_man {
 	    ( [^(]+ ) (?: [(] ( [^)]+ ) [)] )? /smx
 	or return $self->_fail( $link, 'not recognized as man page spec' );
 
-    $page =~ s/ \A \s+ //smx;
     $page =~ s/ \s+ \z //smx;
 
     $page =~ m/ \s /smx
@@ -878,6 +877,16 @@ sub _attr {
     return $self->{ ( __PACKAGE__ ) } ||= {};
 }
 
+sub _normalize_text {
+    my ( $text ) = @_;
+    defined $text
+	or $text = '';
+    $text =~ s/ \A \s+ //smx;
+    $text =~ s/ \s+ \z //smx;
+    $text =~ s/ \s+ / /smxg;
+    return $text;
+}
+
 sub __token_start {
     my ( $self, $token ) = @_;
     my $attr = $self->_attr();
@@ -887,6 +896,11 @@ sub __token_start {
     my $tag = $token->tag();
     if ( 'L' eq $tag ) {
 	$token->attr( line_number => $self->{My_Parser}{line} );
+	foreach my $name ( qw{ section to } ) {
+	    my $sect = $token->attr( $name )
+		or next;
+	    @{ $sect }[ 2 .. $#$sect ] = ( _normalize_text( "$sect" ) );
+	}
 	push @{ $attr->{links} }, [ @{ $token }[ 1 .. $#$token ] ];
     } elsif ( $tag =~ m/ \A head [1-9] \z /smx ) {
 	$attr->{text} = '';
@@ -908,7 +922,7 @@ sub __token_end {
     my $attr = $self->_attr();
     my $tag = $token->tag();
     if ( $tag =~ m/ \A head [1-9] \z /smx ) {
-	$attr->{sections}{ delete $attr->{text} } = 1;
+	$attr->{sections}{ _normalize_text( delete $attr->{text} ) } = 1;
     }
     return;
 }
@@ -950,6 +964,20 @@ and their versions, and the Internet at large. I<Caveat user.>
 This module should probably be considered alpha-quality code at this
 point. It checks most of my modest corpus (correctly, I hope), but
 beyond that deponent sayeth not.
+
+One thing L<perlpod|perlpod> is silent on (at least, I could not find
+anything about it) is how (or even whether) to normalize links and
+section names. Maybe I looked in the wrong place?
+
+Anyhow, because Meta CPAN has been observed to link
+
+ L<SOME
+ SECTION>
+
+to C<=head1 SOME SECTION>, this module normalizes both link and section
+names by removing leading and trailing white space, and replacing
+embedded white space with a single space. Yes, I know that Meta CPAN's
+observed handling of POD is B<far> from being definitive.
 
 This module started its life as a low-dependency version of
 L<Test::Pod::LinkCheck|Test::Pod::LinkCheck>. Significant

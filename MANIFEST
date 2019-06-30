@@ -21,6 +21,7 @@ t/data/not_ok/external_installed_bad_section.pod
 t/data/not_ok/internal_error.pod
 t/data/not_ok/man_bad.pod
 t/data/pod_ok/bug_leading_format_code.pod
+t/data/pod_ok/bug_line_break.pod
 t/data/pod_ok/bug_recursion.pod
 t/data/pod_ok/empty.pod
 t/data/pod_ok/external_builtin.pod
