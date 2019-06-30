@@ -249,6 +249,11 @@ sub all_pod_files_ok {
     @dir
 	or push @dir, 'blib';
 
+    my $note = sprintf 'all_pod_files_ok( %s )',
+	join ', ', map { "'$_'" } @dir;
+
+    $TEST->note( "Begin $note" );
+
     my ( $fail, $pass, $skip ) = ( 0 ) x 3;
 
     File::Find::find( {
@@ -266,6 +271,9 @@ sub all_pod_files_ok {
 	},
 	@dir,
     );
+
+    $TEST->note( "End $note" );
+
     return wantarray ? ( $fail, $pass, $skip ) : $fail;
 }
 

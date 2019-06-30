@@ -221,9 +221,9 @@ use constant REGEXP_REF	=> ref qr{};
 
     $t->pod_file_ok( 't/data/pod_ok/bug_recursion.pod' );
 
-    note q<Testing all_pod_files_ok( 't/data/pod_ok' )>;
+    note '';
     $t->all_pod_files_ok( 't/data/pod_ok' );
-    note q<Done testing all_pod_files_ok( 't/data/pod_ok' )>;
+    note '';
 
 }
 
