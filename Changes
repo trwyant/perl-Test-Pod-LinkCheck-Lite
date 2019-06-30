@@ -1,3 +1,16 @@
+0.000_909	2019-06-30	T. R. Wyant
+    Note beginning and end of all_pod_files_ok() tests
+
+    Fix test failure with old Scalar::Util. When I split the test POD
+    files into t/data/pod_ok/ and t/data/not_ok/ I forgot that
+    external_installed_section.pod failed if Scalar::Util was old
+    enough. Or actually I remembered enough to skip the unit test, but
+    then all_pod_files_ok() found it anyway and failed it.
+
+    Recognize =item as defining a section
+
+    Normalize links and sections.
+
 0.000_908	2019-06-29	T. R. Wyant
     Have all_pod_files_ok() also check .pod files. This involved a
     refactor of the .pod files from t/data into t/data/pod_ok (valid
