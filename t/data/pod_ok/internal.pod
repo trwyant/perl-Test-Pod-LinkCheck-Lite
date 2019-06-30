@@ -5,7 +5,15 @@ internal.pod - A POD file containing only internal links.
 =head1 DESCRIPTION
 
 This POD file contains only internal links, such as L<this one|/TITLE>
-to the TITLE section.
+to the TITLE section, and L<this one|/Paragraph 1> to an item in a list.
+
+=over
+
+=item Paragraph 1
+
+Able was I ere I saw Elba
+
+=back
 
 =cut
 

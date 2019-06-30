@@ -846,6 +846,8 @@ use Pod::Simple::PullParser;	# Core since 5.9.3 (part of Pod::Simple)
 
 @My_Parser::ISA = qw{ Pod::Simple::PullParser };
 
+use constant SECTION_RE => qr< \A (?: head [1-9] | item-text ) \z >smx;
+
 sub new {
     my ( $class ) = @_;
     my $self = $class->SUPER::new();
@@ -902,7 +904,7 @@ sub __token_start {
 	    @{ $sect }[ 2 .. $#$sect ] = ( _normalize_text( "$sect" ) );
 	}
 	push @{ $attr->{links} }, [ @{ $token }[ 1 .. $#$token ] ];
-    } elsif ( $tag =~ m/ \A head [1-9] \z /smx ) {
+    } elsif ( $tag =~ SECTION_RE ) {
 	$attr->{text} = '';
     }
     return;
@@ -921,7 +923,7 @@ sub __token_end {
     my ( $self, $token ) = @_;
     my $attr = $self->_attr();
     my $tag = $token->tag();
-    if ( $tag =~ m/ \A head [1-9] \z /smx ) {
+    if ( $tag =~ SECTION_RE ) {
 	$attr->{sections}{ _normalize_text( delete $attr->{text} ) } = 1;
     }
     return;
