@@ -111,9 +111,25 @@ sub _default_ignore_url {
     sub _default_man {
 	unless ( $checked ) {
 	    $checked = 1;
-	    $rslt = IPC::Cmd::can_run( 'man' )
-		or $TEST->diag(
-		q<Can not check man pages; 'man' not installed> );
+	    # I had hoped that just feeling around for an executable
+	    # 'man' would be adequate, but ReactOS (which identifies
+	    # itself as MSWin32) has a MAN.EXE that will not work. If
+	    # the user has customized the system he or she can always
+	    # specify man => 1. The hash is in case I find other OSes
+	    # that have this problem. OpenVMS might end up here, but I
+	    # have no access to it to see.
+	    if ( {
+		    DOS		=> 1,
+		    MSWin32	=> 1,
+		}->{$^O}
+	    ) {
+		$rslt = 0;
+		$TEST->diag( "Can not check man pages by default under $^O" );
+	    } else {
+		$rslt = IPC::Cmd::can_run( 'man' )
+		    or $TEST->diag(
+		    q<Can not check man pages; 'man' not installed> );
+	    }
 	}
 	return $rslt;
     }
@@ -1186,9 +1202,17 @@ right to change without warning.
 =item man
 
 This Boolean argument is true if C<man> links are to be checked, and
-false if not. The default is the value of C<IPC::Cmd::can_run( 'man' )>.
-If this returns false a diagnostic is generated, and C<man> links are not
-checked.
+false if not.
+
+The default is false (with a diagnostic) if C<$^O> is C<'DOS'> or
+C<'MSWin32'>. Under any other operating system the default is the value
+of C<IPC::Cmd::can_run( 'man' )>. If this returns false a diagnostic is
+generated, and C<man> links are not checked.
+
+In case you're wondering: the Windows testing was done under ReactOS,
+and that appears to come with a F<MAN.EXE> which (at least under 0.4.11)
+causes C<can_run()> to return true, but which does, as far as I can
+tell, nothing useful.
 
 =item module_index
 
