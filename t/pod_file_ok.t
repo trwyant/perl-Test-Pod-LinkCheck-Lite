@@ -193,7 +193,9 @@ use constant REGEXP_REF	=> ref qr{};
 	    or skip
 	    "External section check needs Scalar::Util version $version", 1;
 
-	$t->pod_file_ok( 't/data/pod_ok/external_installed_section.pod' );
+	# This file is in not_ok/ only to prevent all_pod_files_ok()
+	# from finding it.
+	$t->pod_file_ok( 't/data/not_ok/external_installed_section.pod' );
 
     }
 

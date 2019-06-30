@@ -18,6 +18,7 @@ t/data/_cpan/Metadata
 t/data/_http/status
 t/data/not_ok/bug_other_distros.pod
 t/data/not_ok/external_installed_bad_section.pod
+t/data/not_ok/external_installed_section.pod
 t/data/not_ok/internal_error.pod
 t/data/not_ok/man_bad.pod
 t/data/pod_ok/bug_leading_format_code.pod
@@ -27,7 +28,6 @@ t/data/pod_ok/empty.pod
 t/data/pod_ok/external_builtin.pod
 t/data/pod_ok/external_installed.pod
 t/data/pod_ok/external_installed_pod.pod
-t/data/pod_ok/external_installed_section.pod
 t/data/pod_ok/external_uninstalled.pod
 t/data/pod_ok/internal.pod
 t/data/pod_ok/man.pod
