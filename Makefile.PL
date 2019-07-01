@@ -19,7 +19,7 @@ my %args = (
     PL_FILES => {},	# Prevent old MakeMaker from running Build.PL
     'dist' => {COMPRESS => 'gzip', SUFFIX => 'gz'},
     AUTHOR => 'Thomas R. Wyant, III F<wyant at cpan dot org>',
-    ABSTRACT => 'Test non-URL POD links',
+    ABSTRACT => 'Test POD links',
     realclean	=> { FILES => 'cover_db' },
 );
 
