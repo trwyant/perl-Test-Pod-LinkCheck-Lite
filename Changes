@@ -1,3 +1,7 @@
+0.000_910	2019-07-01	T. R. Wyant
+    Pre-emptively default 'man' to false under MSWin32 and DOS. This is
+    because ReactOS actually has a MAN.EXE which is unsuitable.
+
 0.000_909	2019-06-30	T. R. Wyant
     Note beginning and end of all_pod_files_ok() tests
 
