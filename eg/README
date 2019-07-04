@@ -1,5 +1,10 @@
 This directory contains the following specimen scripts:
 
+manpath.PL
+    This script served as the case study in how (or whether) to
+    implement the manpath search in Perl rather than shelling out to
+    man. I concluded a Perl implementation was impractical.
+
 test-pod-links
     This script executes a test on the specified file, directory, or POD
     fragment. If no argument is given, it tests blib/.
