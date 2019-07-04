@@ -1,6 +1,7 @@
 Build.PL
 Changes
 eg/README
+eg/manpath.PL
 eg/test-pod-links
 inc/Mock/HTTP/Tiny.pm
 inc/My/Module/Build.pm
