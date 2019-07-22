@@ -12,7 +12,7 @@ our $VERSION = '0.000_905';
 
 use constant CPAN_INDEX	=> 't/data/_cpan/Metadata';
 
-if ( $ARGV[0] =~ m/ \A --? help \z /smx ) {
+if ( $ARGV[0] && $ARGV[0] =~ m/ \A --? help \z /smx ) {
     print STDERR <<'EOD';
 
 Generate the module indices used by the various mock objects
@@ -69,6 +69,7 @@ foreach my $info (
     },
     map { "https://cpanmetadb.plackperl.org/v1.0/package/$_" }
     keys %index;
+    $status{ 'https://hosed.server/' } = 500;	# Internal server error.
     nstore( \%status, $path );
 }
 
