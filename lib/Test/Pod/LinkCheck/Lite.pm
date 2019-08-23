@@ -21,7 +21,7 @@ use Scalar::Util ();		# Core since 5.7.3
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
 
-our $VERSION = '0.002';
+our $VERSION = '0.002_01';
 
 use constant ON_DARWIN		=> 'darwin' eq $^O;
 use constant ON_VMS		=> 'VMS' eq $^O;
