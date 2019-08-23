@@ -645,7 +645,7 @@ sub _check_external_pod_info {
 	# the existence of the module, and _assuming_ that it was
 	# documented.
 	$data->{undocumented}
-	    and $self->_fail(
+	    and return $self->_fail( $link,
 	    "$module is installed but undocumented" );
 
 	# If we get this far it is an installed module with
