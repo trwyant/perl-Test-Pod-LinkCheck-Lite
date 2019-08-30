@@ -1,4 +1,4 @@
-0.002_01	2019-08-23	T. R. Wyant
+0.003		2019-08-30	T. R. Wyant
     Fix test of link to extant-but-undocumented module. The result now
     contains the failing link and line number, and a passing test for
     the entire file is NOT generated.
