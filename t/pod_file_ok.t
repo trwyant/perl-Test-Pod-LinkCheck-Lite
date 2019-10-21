@@ -113,7 +113,8 @@ use constant REGEXP_REF	=> ref qr{};
 
 	TODO: {
 	    local $TODO = 'Deliberate failure';
-	    ( $fail, $pass, $skip ) = $t->pod_file_ok( 't/data/not_ok/nonexistent.pod' );
+	    ( $fail, $pass, $skip ) = $t->pod_file_ok(
+		't/data/not_ok/nonexistent.pod' );
 	}
 	cmp_ok $fail, '==', 1,
 	'Got expected failure checking non-existent file'
@@ -297,8 +298,30 @@ foreach my $skip_server_errors ( 0, 1 ) {
 		't/data/not_ok/server_error.pod' );
 
 	    cmp_ok $errors, '==', 1,
-		't/data/not_ok/server_error.pod error count with skip_server_erros false';
+		't/data/not_ok/server_error.pod error count with skip_server_errors false';
 	}
+    }
+}
+
+foreach my $prohibit_redirect( 0, 1 ) {
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	prohibit_redirect	=> $prohibit_redirect,
+    );
+
+    note "Test with explicitly-specified prohibit_redirect => $prohibit_redirect";
+
+    if ( $prohibit_redirect ) {
+
+	TODO: {
+	    local $TODO = 'Deliberate failure';
+	    my $errors = $t->pod_file_ok(
+		't/data/not_ok/redirect.pod' );
+
+	    cmp_ok $errors, '==', 1,
+		't/data/not_ok/redirect.pod error count with prohibit_redirect false';
+	}
+    } else {
+	$t->pod_file_ok( 't/data/not_ok/redirect.pod' );
     }
 }
 

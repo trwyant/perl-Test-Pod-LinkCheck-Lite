@@ -147,6 +147,10 @@ sub _default_module_index {
     return \@handlers;
 }
 
+sub _default_prohibit_redirect {
+    return 0;
+}
+
 sub _default_require_installed {
     return 0;
 }
@@ -252,6 +256,12 @@ sub _init_module_index {
     return;
 }
 
+sub _init_prohibit_redirect {
+    my ( $self, $name, $value ) = @_;
+    $self->{$name} = $value ? 1 : 0;
+    return;
+}
+
 sub _init_require_installed {
     my ( $self, $name, $value ) = @_;
     $self->{$name} = $value ? 1 : 0;
@@ -339,6 +349,7 @@ ${leader}'ignore_url' is $ignore_url
 ${leader}'man' is @{[ _Boolean( $self->man() ) ]}
 ${leader}'module_index' is ( @{[ join ', ', map { "'$_'" }
     $self->module_index() ]} )
+${leader}'prohibit_redirect' is @{[ _Boolean( $self->prohibit_redirect() ) ]}
 ${leader}'require_installed' is @{[ _Boolean( $self->require_installed() ) ]}
 ${leader}'skip_server_errors' is @{[ _Boolean( $self->skip_server_errors() ) ]}
 EOD
@@ -442,6 +453,11 @@ sub pod_file_ok {
     return wantarray ?
 	( @{ $self->{_test} }{ qw{ fail pass skip } } ) :
 	$self->{_test}{fail};
+}
+
+sub prohibit_redirect {
+    my ( $self ) = @_;
+    return $self->{prohibit_redirect};
 }
 
 sub require_installed {
@@ -803,15 +819,25 @@ sub _handle_url {
 
     my $resp = $user_agent->head( $url );
 
-    $resp->{success}
-	and return 0;
+    if ( $resp->{success} ) {
 
-    $self->skip_server_errors()
-	and $resp->{status} =~ m/ \A 5 /smx
-	and return $self->_skip( $link,
-	    "not checked: server error $resp->{status} $resp->{reason}" );
+	$self->prohibit_redirect()
+	    and $url ne $resp->{url}
+	    and return $self->_fail( $link, "redirected to $resp->{url}" );
 
-    return $self->_fail( $link, "broken: $resp->{status} $resp->{reason}" );
+	return 0;
+
+    } else {
+
+	$self->skip_server_errors()
+	    and $resp->{status} =~ m/ \A 5 /smx
+	    and return $self->_skip( $link,
+		"not checked: server error $resp->{status} $resp->{reason}" );
+
+	return $self->_fail( $link,
+	    "broken: $resp->{status} $resp->{reason}" );
+
+    }
 }
 
 {
@@ -1259,6 +1285,15 @@ indices.
 
 By default all indices are considered.
 
+=item prohibit_redirect
+
+Added in version 0.004
+
+This Boolean argument is true to fail URL links that are redirected. It
+is ignored unless L<check_url|/check_url> is true.
+
+The default is false, for historical reasons.
+
 =item require_installed
 
 This Boolean argument is true to disable the uninstalled module checks.
@@ -1373,6 +1408,13 @@ If called in scalar context, this method returns the number of test
 failures encountered. If called in list context it return the number of
 failures, passes, and skipped tests, in that order.
 
+=head2 prohibit_redirect
+
+ $t->prohibit_redirect()
+     and say 'All URL links must resolve without redirection';
+
+This method returns the value of the C<'prohibit_redirect'> attribute.
+
 =head2 require_installed
 
  $t->require_installed()
@@ -1421,7 +1463,7 @@ me.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<http://rt.cpan.org>, or in electronic mail to the author.
+L<https://rt.cpan.org>, or in electronic mail to the author.
 
 =head1 AUTHOR
 

@@ -18,7 +18,10 @@ my %opt = (
 my $dump;
 
 GetOptions( \%opt,
-    qw{ check_url|check-url! ignore_url|ignore-url=s@ man! },
+    qw{
+	check_url|check-url! ignore_url|ignore-url=s@ man!
+	prohibit_redirect|prohibit-redirect!
+    },
     'dump!'	=> \$dump,
     help	=> sub { pod2usage( { -verbose => 2 } ) },
 ) and 1 >= @ARGV or pod2usage( { -verbose => 0 } );

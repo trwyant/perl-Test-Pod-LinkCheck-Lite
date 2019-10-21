@@ -70,6 +70,10 @@ foreach my $info (
     map { "https://cpanmetadb.plackperl.org/v1.0/package/$_" }
     keys %index;
     $status{ 'https://hosed.server/' } = 500;	# Internal server error.
+    $status{ 'http://www.cpan.org/' } = {
+	status	=> 200,
+	url	=> 'https://www.cpan.org',
+    };
     nstore( \%status, $path );
 }
 
