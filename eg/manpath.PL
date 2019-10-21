@@ -374,6 +374,8 @@ them.
 
 =back
 
+=back
+
 =head1 AUTHOR
 
 Thomas R. Wyant, III F<wyant at cpan dot org>
