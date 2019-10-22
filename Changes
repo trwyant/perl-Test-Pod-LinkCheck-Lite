@@ -1,3 +1,9 @@
+0.003_02	2019-10-22	T. R. Wyant
+    Allow code ref for prohibit_redirect, and provide
+    ALLOW_REDIRECT_TO_INDEX. The latter is exportable, and allows URLs
+    ending in '/' if the redirection is the same except for the part
+    after the last slash.
+
 0.003_01	2019-10-21	T. R. Wyant
     Optionally fail URL links that redirect.
 
