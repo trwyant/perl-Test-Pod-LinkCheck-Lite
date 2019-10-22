@@ -292,14 +292,15 @@ foreach my $skip_server_errors ( 0, 1 ) {
 	$t->pod_file_ok( 't/data/not_ok/server_error.pod' );
     } else {
 
+	my $errors;
+
 	TODO: {
 	    local $TODO = 'Deliberate failure';
-	    my $errors = $t->pod_file_ok(
-		't/data/not_ok/server_error.pod' );
-
-	    cmp_ok $errors, '==', 1,
-		't/data/not_ok/server_error.pod error count with skip_server_errors false';
+	    $errors = $t->pod_file_ok( 't/data/not_ok/server_error.pod' );
 	}
+
+	cmp_ok $errors, '==', 1,
+	    't/data/not_ok/server_error.pod error count with skip_server_errors false';
     }
 }
 
@@ -310,16 +311,16 @@ foreach my $prohibit_redirect( 0, 1 ) {
 
     note "Test with explicitly-specified prohibit_redirect => $prohibit_redirect";
 
+    my $errors;
+
     if ( $prohibit_redirect ) {
 
 	TODO: {
 	    local $TODO = 'Deliberate failure';
-	    my $errors = $t->pod_file_ok(
-		't/data/not_ok/redirect.pod' );
-
-	    cmp_ok $errors, '==', 1,
-		't/data/not_ok/redirect.pod error count with prohibit_redirect false';
+	    $errors = $t->pod_file_ok( 't/data/not_ok/redirect.pod' );
 	}
+	cmp_ok $errors, '==', 1,
+	    't/data/not_ok/redirect.pod error count with prohibit_redirect false';
     } else {
 	$t->pod_file_ok( 't/data/not_ok/redirect.pod' );
     }
