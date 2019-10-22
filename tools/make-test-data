@@ -124,7 +124,7 @@ place:
 
 =over
 
-=item Set C<$Test::Pod::LinkCheck::Lite::DIRECTORY_LEADER to C<'_'>.
+=item Set C<$Test::Pod::LinkCheck::Lite::DIRECTORY_LEADER> to C<'_'>.
 
 This forces VMS-style directory names for the L<CPAN|CPAN> logic.
 
