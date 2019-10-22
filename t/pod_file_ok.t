@@ -33,7 +33,8 @@ use constant CODE_REF	=> ref sub {};
 use constant NON_REF	=> ref 0;
 use constant REGEXP_REF	=> ref qr{};
 
-{
+# The BEGIN block is for the sake of the import().
+BEGIN {
     my $inx = 0;
     OUTER_LOOP: {
 	while ( $inx < @INC ) {
@@ -43,14 +44,12 @@ use constant REGEXP_REF	=> ref qr{};
 	$inx = 0;
     }
     splice @INC, $inx, 0, 'inc/Mock';
-}
 
-
-{
     no warnings qw{ once };
 
     local $Test::Pod::LinkCheck::Lite::DIRECTORY_LEADER = '_';
     require Test::Pod::LinkCheck::Lite;
+    Test::Pod::LinkCheck::Lite->import( qw{ :const } );
 }
 
 {
@@ -304,7 +303,7 @@ foreach my $skip_server_errors ( 0, 1 ) {
     }
 }
 
-foreach my $prohibit_redirect( 0, 1 ) {
+foreach my $prohibit_redirect( 0, 1, ALLOW_REDIRECT_TO_INDEX ) {
     my $t = Test::Pod::LinkCheck::Lite->new(
 	prohibit_redirect	=> $prohibit_redirect,
     );
@@ -323,6 +322,21 @@ foreach my $prohibit_redirect( 0, 1 ) {
 	    't/data/not_ok/redirect.pod error count with prohibit_redirect false';
     } else {
 	$t->pod_file_ok( 't/data/not_ok/redirect.pod' );
+    }
+
+    if ( $prohibit_redirect && ! ref $prohibit_redirect ) {
+
+	my $errors;
+
+	TODO: {
+	    local $TODO = 'Deliberate failure';
+	    $errors = $t->pod_file_ok( 't/data/not_ok/redirect_no_path.pod' );
+	}
+	cmp_ok $errors, '==', 1,
+	    "t/data/not_ok/redirect_no_path.pod error count with prohibit_redirect $prohibit_redirect";
+
+    } else {
+	$t->pod_file_ok( 't/data/not_ok/redirect_no_path.pod' );
     }
 }
 

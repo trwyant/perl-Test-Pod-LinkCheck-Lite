@@ -74,6 +74,10 @@ foreach my $info (
 	status	=> 200,
 	url	=> 'https://www.cpan.org',
     };
+    $status{ 'https://heavens-above.com/' } = {
+	status	=> 200,
+	url	=> 'https://heavens-above.com/main.aspx',
+    };
     nstore( \%status, $path );
 }
 
