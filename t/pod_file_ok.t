@@ -303,12 +303,19 @@ foreach my $skip_server_errors ( 0, 1 ) {
     }
 }
 
-foreach my $prohibit_redirect( 0, 1, ALLOW_REDIRECT_TO_INDEX ) {
+foreach (
+    [ 0 => 0 ],
+    [ 1 => 1 ],
+    [ ALLOW_REDIRECT_TO_INDEX => ALLOW_REDIRECT_TO_INDEX ],
+    [ 'Chained custom sub' => sub { return ALLOW_REDIRECT_TO_INDEX } ],
+    ) {
+    my ( $name, $prohibit_redirect ) = @{ $_ };
     my $t = Test::Pod::LinkCheck::Lite->new(
 	prohibit_redirect	=> $prohibit_redirect,
     );
 
-    note "Test with explicitly-specified prohibit_redirect => $prohibit_redirect";
+    note '';
+    note "Test with explicitly-specified prohibit_redirect => $name";
 
     my $errors;
 
@@ -319,7 +326,7 @@ foreach my $prohibit_redirect( 0, 1, ALLOW_REDIRECT_TO_INDEX ) {
 	    $errors = $t->pod_file_ok( 't/data/not_ok/redirect.pod' );
 	}
 	cmp_ok $errors, '==', 1,
-	    't/data/not_ok/redirect.pod error count with prohibit_redirect false';
+	    "t/data/not_ok/redirect.pod error count with prohibit_redirect $name";;
     } else {
 	$t->pod_file_ok( 't/data/not_ok/redirect.pod' );
     }
@@ -333,12 +340,14 @@ foreach my $prohibit_redirect( 0, 1, ALLOW_REDIRECT_TO_INDEX ) {
 	    $errors = $t->pod_file_ok( 't/data/not_ok/redirect_no_path.pod' );
 	}
 	cmp_ok $errors, '==', 1,
-	    "t/data/not_ok/redirect_no_path.pod error count with prohibit_redirect $prohibit_redirect";
+	    "t/data/not_ok/redirect_no_path.pod error count with prohibit_redirect $name";
 
     } else {
 	$t->pod_file_ok( 't/data/not_ok/redirect_no_path.pod' );
     }
 }
+
+note '';
 
 {
     my $code = sub { 0 };

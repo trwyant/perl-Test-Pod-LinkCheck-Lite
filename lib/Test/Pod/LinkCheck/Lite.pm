@@ -859,8 +859,11 @@ sub _handle_url {
 
     if ( $resp->{success} ) {
 
-	$self->{_prohibit_redirect}->( $self, $resp, $url )
-	    and return $self->_fail( $link, "redirected to $resp->{url}" );
+	my $code = $self->{_prohibit_redirect};
+	while ( $code = $code->( $self, $resp, $url ) ) {
+	    CODE_REF eq ref $code
+		or return $self->_fail( $link, "redirected to $resp->{url}" );
+	}
 
 	return 0;
 
@@ -1332,7 +1335,11 @@ If a code reference is specified, it is called whenever a URL link is
 successfully resolved. The arguments are the
 C<Test::Pod::LinkCheck::Lite> object, the L<HTTP::Tiny> response hash,
 and the URL from the link. The code returns true to declare the link in
-error, or false to allow it.
+error, false to allow it, or a code reference to defer the decision to
+that code. This latter is provided because I found the case where I
+wanted to do a little pre-processing and then defer to
+L<ALLOW_REDIRECT_TO_INDEX|/ALLOW_REDIRECT_TO_INDEX>, but could not find
+a clean way to use a manifest constant in a C<goto>.
 
 Any other value is interpreted as a Boolean. If the argument is true,
 any redirect is an error. If false, redirects are allowed.
