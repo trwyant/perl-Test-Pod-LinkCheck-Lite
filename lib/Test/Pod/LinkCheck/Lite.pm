@@ -22,7 +22,7 @@ use Scalar::Util ();		# Core since 5.7.3
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
 
-our $VERSION = '0.003_03';
+our $VERSION = '0.004';
 
 our @ISA = qw{ Exporter };
 

@@ -1,20 +1,6 @@
-0.003_03	2019-10-23	T. R. Wyant
-    Allow prohibit_redirect code to return code ref. This has the effect
-    of defering to the returned code. It was implemented because I
-    wanted to do a little preproscessing and then pass control to
-    ALLOW_REDIRECT_TO_INDEX, but could not find a clean way to make a
-    goto() work.
-
-    Add -allow-redirect-to-index to eg/test-pod-links
-
-0.003_02	2019-10-22	T. R. Wyant
-    Allow code ref for prohibit_redirect, and provide
-    ALLOW_REDIRECT_TO_INDEX. The latter is exportable, and allows URLs
-    ending in '/' if the redirection is the same except for the part
-    after the last slash.
-
-0.003_01	2019-10-21	T. R. Wyant
-    Optionally fail URL links that redirect.
+0.004		2019-10-30	T. R. Wyant
+    Optionally fail URL links that redirect. The user can provide code
+    to determine which redirections are allowed.
 
 0.003		2019-08-30	T. R. Wyant
     Fix test of link to extant-but-undocumented module. The result now

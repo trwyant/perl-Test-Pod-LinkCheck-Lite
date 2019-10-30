@@ -8,7 +8,7 @@ use warnings;
 use Carp;
 use Storable ();
 
-our $VERSION = '0.003_03';
+our $VERSION = '0.004';
 
 use constant HASH_REF	=> ref {};
 
