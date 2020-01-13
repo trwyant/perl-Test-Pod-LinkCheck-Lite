@@ -1171,8 +1171,7 @@ for this information in the following places:
 
 =item File F<Metadata> in the directory used by the C<CPAN> client;
 
-=item Website L<https://cpanmetadb.plackperl.org/>, a.k.a. the CPAN Meta
-DB.
+=item Website L<https://cpanmetadb.plackperl.org/>, a.k.a. the CPAN Meta DB.
 
 =back
 
