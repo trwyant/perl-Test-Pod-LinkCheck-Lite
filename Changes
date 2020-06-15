@@ -1,3 +1,6 @@
+0.004_01	2020-06-15	T. R. Wyant
+    Try to get more info on OpenBSD test failure.
+
 0.004		2019-10-30	T. R. Wyant
     Optionally fail URL links that redirect. The user can provide code
     to determine which redirections are allowed.
