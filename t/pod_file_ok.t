@@ -58,7 +58,12 @@ BEGIN {
 
     diag '';
     diag $t->configuration( 'Default' );
-    diag 'CAN_MAN_MAN = ', CAN_MAN_MAN;
+    diag 'CAN_MAN_MAN is ', CAN_MAN_MAN ? 'true' : 'false';
+    CAN_MAN_MAN
+	or diag <<'EOD';
+The man (1) program appears to be available, but man -w man appears not
+to work. Tests of man links will be skipped.
+EOD
 
     # Encapsulation violation for testing purposes. DO NOT try this at
     # home.
@@ -133,6 +138,8 @@ BEGIN {
     SKIP: {
 	$t->man()
 	    or skip 'This system does not support the testing of man links', 2;
+	CAN_MAN_MAN
+	    or skip q<This system is unable to run 'man -w man'>, 2;
 
 	my ( $fail, $pass, $skip );
 
@@ -223,6 +230,13 @@ BEGIN {
     $t->pod_file_ok( 't/data/pod_ok/bug_leading_format_code.pod' );
 
     $t->pod_file_ok( 't/data/pod_ok/bug_recursion.pod' );
+
+}
+
+{
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	man	=> CAN_MAN_MAN,
+    );
 
     note '';
     $t->all_pod_files_ok( 't/data/pod_ok' );

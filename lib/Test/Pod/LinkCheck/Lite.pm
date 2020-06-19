@@ -1536,8 +1536,8 @@ configurations, gave me an opportunity to make this module much more
 robust than it would otherwise have been. It is probably unfair to
 single out individual testers, but as the luck of the testing cycle
 would have it, results from Andreas J. König (C<ANDK>), Slaven Rezić
-(C<SREZIC>), and Chris Williams (C<BINGOS>) were particularly useful to
-me.
+(C<SREZIC>), Chris Williams (C<BINGOS>), and Alceu Rodrigues de Freitas
+Junior were particularly useful to me.
 
 =head1 SUPPORT
 
