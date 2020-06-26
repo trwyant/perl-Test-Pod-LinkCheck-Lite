@@ -1,9 +1,6 @@
-0.004_02	2020-06-19	T. R. Wyant
+0.005		2020-06-26	T. R. Wyant
     Skip man tests if 'man -w man' can not be executed. Thanks to Alceu
     Rodrigues de Freitas Junior, whose OpenBSD smoker picked this up.
-
-0.004_01	2020-06-15	T. R. Wyant
-    Try to get more info on OpenBSD test failure.
 
 0.004		2019-10-30	T. R. Wyant
     Optionally fail URL links that redirect. The user can provide code
