@@ -535,7 +535,6 @@ sub _fail {
 sub _skip {
     my ( $self, @msg ) = @_;
     local $Test::Builder::Level =  _nest_depth();
-    $DB::single = 1;
     $TEST->skip( $self->__build_test_msg( @msg ) );
     $self->{_test}{skip}++;
     return 0;
