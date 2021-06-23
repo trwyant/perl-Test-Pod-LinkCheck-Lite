@@ -86,11 +86,8 @@ sub module_name {
 
 sub no_index {
     return +{
-      directory => [
-                     'inc',
-                     't',
-                     'xt',
-                   ],
+	directory	=> [ qw{ inc t xt } ],
+	package		=> [ qw{ My_Parser } ],
     };
 }
 

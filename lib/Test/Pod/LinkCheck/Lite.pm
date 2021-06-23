@@ -948,8 +948,7 @@ sub _is_perl_file {
     }
 }
 
-package		## no critic (ProhibitMultiplePackages)
-My_Parser;	# Cargo cult to hide package from toolchain.
+package My_Parser;		## no critic (ProhibitMultiplePackages)
 
 use Pod::Simple::PullParser;	# Core since 5.9.3 (part of Pod::Simple)
 
