@@ -120,6 +120,10 @@ sub _default_check_external_sections {
     return 1;
 }
 
+sub _default_cache_url_response {
+    return 1;
+}
+
 sub _default_check_url {
     return 1;
 }
@@ -190,6 +194,12 @@ sub _init_agent {
 }
 
 sub _init_allow_man_spaces {
+    my ( $self, $name, $value ) = @_;
+    $self->{$name} = $value ? 1 : 0;
+    return;
+}
+
+sub _init_cache_url_response {
     my ( $self, $name, $value ) = @_;
     $self->{$name} = $value ? 1 : 0;
     return;
@@ -355,6 +365,11 @@ sub allow_man_spaces {
     return $self->{allow_man_spaces}
 }
 
+sub cache_url_response {
+    my ( $self ) = @_;
+    return $self->{cache_url_response}
+}
+
 sub check_external_sections {
     my ( $self ) = @_;
     return $self->{check_external_sections}
@@ -379,6 +394,8 @@ sub configuration {
 ${leader}'agent' is '@{[ $self->agent() ]}'
 ${leader}'allow_man_spaces' is @{[ _Boolean(
     $self->allow_man_spaces() ) ]}
+${leader}'cache_url_response' is @{[ _Boolean(
+    $self->cache_url_response() ) ]}
 ${leader}'check_external_sections' is @{[ _Boolean(
     $self->check_external_sections() ) ]}
 ${leader}'check_url' is @{[ _Boolean( $self->check_url() ) ]}
@@ -853,7 +870,13 @@ sub _handle_url {
     $self->__ignore_url( $url )
 	and return $self->_skip( $link, 'not checked; explicitly ignored' );
 
-    my $resp = $user_agent->head( $url );
+    my $resp;
+    if ( $self->cache_url_response() ) {
+	$resp = $self->{_cache_url_response}{$url} ||=
+	    $user_agent->head( $url );
+    } else {
+	$resp = $user_agent->head( $url );
+    }
 
     if ( $resp->{success} ) {
 
@@ -1219,6 +1242,14 @@ arguments on spaces.
 
 The default is false.
 
+=item cache_url_response
+
+This Boolean argument is set true to cache the responses from URL links.
+This means each URL is queried only once, no matter how many times it
+appears.
+
+The default is true.
+
 =item check_external_sections
 
 This Boolean argument is true if the sections of links outside the
@@ -1402,6 +1433,13 @@ failures, passes, and skipped tests, in that order.
    and say 'Embedded spaces are allowed in man page names';
 
 This method returns the value of the C<'allow_man_spaces'> attribute.
+
+=head2 cache_url_response
+
+ $t->cache_url_response()
+   and say 'URL responses are cached';
+
+This method returns the value of the C<'cache_url_response'> attribute.
 
 =head2 check_external_sections
 
