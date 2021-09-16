@@ -611,6 +611,7 @@ sub _get_installed_doc_info {
     # called) for why this check is done.
     Module::Load::Conditional::check_install( module	=> $module )
 	and return {
+	file		=> $path,
 	undocumented	=> 1,
     };
 
