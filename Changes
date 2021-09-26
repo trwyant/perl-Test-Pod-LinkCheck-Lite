@@ -1,8 +1,7 @@
-0.007_02	2021-09-16	T. R. Wyant
+0.008		2021-09-26	T. R. Wyant
     Provide fake modules for testing to prevent test failures on systems
     that have stripped POD from core modules.
 
-0.007_01	2021-09-14	T. R. Wyant
     Cache URL responses, for performance and to minimize hits on sites.
     This is controlled by the Boolesn cache_url_response attribute,
     which defaults to true.
