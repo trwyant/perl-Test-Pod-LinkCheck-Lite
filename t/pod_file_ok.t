@@ -364,6 +364,35 @@ foreach (
     }
 }
 
+{
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	ignore_url	=> MAYBE_IGNORE_GITHUB,
+    );
+
+    my $errors;
+
+    TODO: {
+	local $TODO = 'Deliberate failure';
+	$errors = $t->pod_file_ok( 't/data/not_ok/github_error.pod' );
+    }
+    cmp_ok $errors, '==', 1,
+	"t/data/not_ok/github_error.pod error count with IGNORE_GITHUB_MAYBE";
+}
+
+{
+    note <<'EOD';
+
+The following should succeed because we have forced Git to look at a
+non-existent repository, and MAYBE_IGNORE_GITHUB has been specified.
+EOD
+    local $ENV{GIT_DIR} = 't/data/.git';
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	ignore_url	=> MAYBE_IGNORE_GITHUB,
+    );
+
+    $t->pod_file_ok( 't/data/not_ok/github_error.pod' );
+}
+
 note '';
 
 {
