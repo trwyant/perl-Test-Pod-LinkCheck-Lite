@@ -364,7 +364,7 @@ foreach (
     }
 }
 
-{
+if ( -d ( $ENV{GIT_DIR} || '.git' ) ) {
     my $t = Test::Pod::LinkCheck::Lite->new(
 	ignore_url	=> MAYBE_IGNORE_GITHUB,
     );
@@ -377,6 +377,10 @@ foreach (
     }
     cmp_ok $errors, '==', 1,
 	"t/data/not_ok/github_error.pod error count with IGNORE_GITHUB_MAYBE";
+} else {
+    SKIP: {
+	skip 'MAYBE_IGNORE_GITHUB test only passes in development directory.', 2;
+    }
 }
 
 {
