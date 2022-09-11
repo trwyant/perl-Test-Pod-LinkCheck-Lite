@@ -7,7 +7,7 @@ use warnings;
 
 use Carp;
 
-our $VERSION = '0.008_02';
+our $VERSION = '0.009';
 
 
 1;

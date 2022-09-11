@@ -1,7 +1,4 @@
-0.008_02	2022-09-04	T. R. Wyant
-    Correct MAYBE_IGNORE_GITHUB test.
-
-0.008_01	2022-09-04	T. R. Wyant
+0.009		2022-09-11	T. R. Wyant
     Add canned 'ignore_url' value MAYBE_IGNORE_GITHUB.  This causes
     GitHub URLs to be ignored unless the source directory contains a Git
     repository and GitHub is configured as a remote.  This is intended
