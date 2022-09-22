@@ -159,6 +159,7 @@ sub man_path {
     foreach my $man_conf ( map { bsd_glob( $_ ) } @{ ( MAN_CONF ) } ) {
 	open my $fh, '<', $man_conf
 	    or next;
+	local $_ = undef;	# while (<>) ... does not localize $_.
 	while ( <$fh> ) {
 	    m/ \A \s* (?: \z | [#] ) /smx
 		and next;

@@ -78,6 +78,7 @@ use constant MAYBE_IGNORE_GITHUB	=> sub {
 	or return 1;
     open my $fh, '-|', qw{ git remote --verbose }	## no critic (RequireBriefOpen)
 	or return 1;
+    local $_ = undef;	# while (<>) ... does not localize $_.
     while ( <$fh> ) {
 	m< \b https://github\.com \b >smx
 	    and return;
