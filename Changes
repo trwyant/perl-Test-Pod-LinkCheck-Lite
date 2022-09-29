@@ -1,4 +1,4 @@
-0.009_01	2022-09-22	T. R. Wyant
+0.010		2022-09-29	T. R. Wyant
     Localize $_ before while (<>).
 
 0.009		2022-09-11	T. R. Wyant
