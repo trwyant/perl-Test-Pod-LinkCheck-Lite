@@ -51,6 +51,21 @@ sub _default_agent {
     return join '/', "Mock $agent", $self->VERSION();
 }
 
+# NOTE this is only the static functionality.
+sub can_ssl {
+    local $@ = undef;
+    my ( $ok, $reason ) = ( 1, '' );
+    eval {
+	require IO::Socket::SSL;
+	IO::Socket::SSL->VERSION( 1.42 );
+	1;
+    } or ( $ok, $reason ) = 
+    ( 0, "IO::Socket::SSL 1.42 must be installed for https support\n" );
+    wantarray
+	or return $ok;
+    return ( $ok, $reason );
+}
+
 sub head {
     my ( $self, $url ) = @_;
     return $self->request( HEAD => $url );
@@ -140,6 +155,19 @@ the real L<HTTP::Tiny|HTTP::Tiny>.
  my $user_agent_string = ua->agent();
 
 This method retrieves (but does not set) the user agent string.
+
+=head2 can_ssl
+
+ my $ok = HTTP::Tiny->can_ssl();
+ my ( $ok, $reason ) = HTTP::Tiny->can_ssl();
+
+If called in scalar context, this static method returns a true value if
+L<IO::Socket::SSL|IO::Socket::SSL> is available and a false value
+otherwise. In list context, if C<$ok> is false C<$resource> will contain
+the reason why not.
+
+The L<HTTP::Tiny> functionality when the invocant is an object is not
+provided.
 
 =head2 head
 

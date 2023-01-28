@@ -886,6 +886,17 @@ sub _handle_url {
     my $url = "$link->[1]{to}"	# Stringify object
 	or return $self->_fail( $link, 'contains no url' );
 
+    if ( $url =~ m/ \A https : /smxi ) {
+	my ( $ok, $why ) = HTTP::Tiny->can_ssl();
+	unless ( $ok ) {
+	    $self->{_ssl_warning}
+		or $TEST->diag( "Can not check https: links: $why" );
+	    $self->{_ssl_warning} = 1;
+	    return $self->_skip(
+		$link, 'not checked: https: checks unavailable' );
+	}
+    }
+
     $self->__ignore_url( $url )
 	and return $self->_skip( $link, 'not checked; explicitly ignored' );
 
@@ -1175,6 +1186,15 @@ These links are of the form C<< LE<lt>http://...E<gt> >> (or C<https:>
 or whatever). They will only be checked if the C<check_url> attribute is
 true, and can only be successfully checked if Perl has access to the
 specified URL.
+
+B<NOTE> that C<https:> links can only be checked if
+L<IO::Socket::SSL|IO::Socket::SSL> version 1.42 (at least) and
+L<Net::SSLeay|Net::SSLeay> version 1.49 (at least) are installed. These
+are B<NOT> prerequisites of C<Test::Pod::LinkCheck::Lite> because they
+are not in core, and I am trying to keep non-core dependencies to a
+minimum. If these modules are not present an attempt to check an
+C<https:> link will result in a skipped test. In addition, a diagnostic
+will be issued for the first C<https:> link skipped by the test object.
 
 =item * pod (internal)
 
