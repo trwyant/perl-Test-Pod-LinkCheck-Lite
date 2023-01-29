@@ -2,6 +2,9 @@
 
 This POD contains a link to a built-in command, L<unlink|unlink>.
 
+And a link to a section which has an C<< XE<lt>E<gt> >> formatting code that must be
+ignored: L<perlpod/Ordinary Paragraph>.
+
 =cut
 
 # ex: set textwidth=72 :
