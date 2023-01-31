@@ -1021,7 +1021,7 @@ sub run {
 	defined $source
 	    and $self->set_source( $source );
     my $attr = $self->_attr();
-    @{ $attr }{ qw{ line links sections } } = ( 1, [], {} );
+    @{ $attr }{ qw{ line links sections ignore_tag } } = ( 1, [], {}, [] );
     while ( my $token = $self->get_token() ) {
 	if ( my $code = $self->can( '__token_' . $token->type() ) ) {
 	    $code->( $self, $token );
@@ -1065,6 +1065,8 @@ sub __token_start {
 	    @{ $sect }[ 2 .. $#$sect ] = ( _normalize_text( "$sect" ) );
 	}
 	push @{ $attr->{links} }, [ @{ $token }[ 1 .. $#$token ] ];
+    } elsif ( 'X' eq $tag ) {
+	push @{ $attr->{ignore_tag} }, $tag;
     } elsif ( $section_tag{$tag} ) {
 	$attr->{text} = '';
     }
@@ -1074,6 +1076,7 @@ sub __token_start {
 sub __token_text {
     my ( $self, $token ) = @_;
     my $attr = $self->_attr();
+    return if @{ $attr->{ignore_tag} };
     my $text = $token->text();
     $attr->{line} += $text =~ tr/\n//;
     $attr->{text} .= $text;
@@ -1086,6 +1089,8 @@ sub __token_end {
     my $tag = $token->tag();
     if ( $section_tag{$tag} ) {
 	$attr->{sections}{ _normalize_text( delete $attr->{text} ) } = 1;
+    } elsif( @{ $attr->{ignore_tag} } && $tag eq $attr->{ignore_tag}[-1] ) {
+	pop @{ $attr->{ignore_tag} };
     }
     return;
 }
