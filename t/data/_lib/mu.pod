@@ -3,6 +3,7 @@
 mu - Documentation of nothing
 
 =head1 AUTHOR
+X<author>
 
 Thomas R. Wyant, III F<wyant at cpan dot org>
 
