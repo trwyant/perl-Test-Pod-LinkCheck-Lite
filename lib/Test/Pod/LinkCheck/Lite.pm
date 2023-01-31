@@ -86,6 +86,8 @@ use constant MAYBE_IGNORE_GITHUB	=> sub {
     return 1;
 };
 
+use constant USER_AGENT_CLASS	=> 'HTTP::Tiny';
+
 
 # NOTE that Test::Builder->new() gets us a singleton. For this reason I
 # use $Test::Builder::Level (localized) to get tests reported relative
@@ -124,10 +126,6 @@ sub new {
 	}
 	return $self;
     }
-}
-
-sub _default_agent {
-    return HTTP::Tiny->new()->agent();
 }
 
 sub _default_allow_man_spaces {
@@ -205,10 +203,8 @@ sub _default_skip_server_errors {
     return 1;
 }
 
-sub _init_agent {
-    my ( $self, $name, $value ) = @_;
-    $self->{$name} = $value;
-    return;
+sub _default_user_agent {
+    return USER_AGENT_CLASS;
 }
 
 sub _init_allow_man_spaces {
@@ -339,8 +335,28 @@ sub _init_skip_server_errors {
     return;
 }
 
+sub _init_user_agent {
+    my ( $self, $name, $value ) = @_;
+    defined $name
+	or $name = USER_AGENT_CLASS;
+    eval {
+	$value->isa( USER_AGENT_CLASS )
+    } or Carp::confess(
+	"Invalid user_agent value '$value': must be a subclass of HTTP::Tiny, or undef" );
+    $self->{$name} = $value;
+    if ( ref $value ) {
+	$self->{_user_agent} = $value;
+    } else {
+	# Probably unnecessary, but I'm paranoid.
+	delete $self->{_user_agent};
+    }
+    return;
+}
+
 sub agent {
     my ( $self ) = @_;
+    defined $self->{agent}
+	or $self->{agent} = $self->_user_agent()->agent();
     return $self->{agent};
 }
 
@@ -542,11 +558,22 @@ sub skip_server_errors {
     return $self->{skip_server_errors};
 }
 
+# This is a private method, but because it had to be accessed (read:
+# monkey-patched) to get badly-needed user functionality, it needs to
+# fulfill its interface contract until March 1 2024 or one year after
+# the release of version 0.011, whichever is later. That contract is:
+# * Name: _user_agent
+# * Arguments: none
+# * Return: HTTP::Tiny object, which may be a subclass.
 sub _user_agent {
     my ( $self ) = @_;
-    return( $self->{_user_agent} ||= HTTP::Tiny->new(
-	    agent	=> $self->agent(),
-	) );
+    return( $self->{_user_agent} ||= do {
+	    my @arg;
+	    defined $self->{agent}
+		and push @arg, agent => $self->{agent};
+	    $self->{user_agent}->new( @arg );
+	}
+    );
 }
 
 sub _pass {
@@ -887,7 +914,7 @@ sub _handle_url {
 	or return $self->_fail( $link, 'contains no url' );
 
     if ( $url =~ m/ \A https : /smxi ) {
-	my ( $ok, $why ) = HTTP::Tiny->can_ssl();
+	my ( $ok, $why ) = USER_AGENT_CLASS->can_ssl();
 	unless ( $ok ) {
 	    $self->{_ssl_warning}
 		or $TEST->diag( "Can not check https: links: $why" );
@@ -1275,7 +1302,13 @@ The following arguments are supported:
 
 This argument is the user agent string to use for web access.
 
-The default is that of L<HTTP::Tiny|HTTP::Tiny>.
+B<Note> that this probably should have been called something more
+verbose like C<user_agent_string>, but I was influenced by the name
+used by L<HTTP::Tiny|HTTP::Tiny>, and did not anticipate the need for
+the interface to be able to specify the actual user agent.
+
+The default is C<undef>, which specifies whatever the actual user
+agent's C<agent()> method returns.
 
 =item allow_man_spaces
 
@@ -1291,6 +1324,9 @@ The default is false.
 This Boolean argument is set true to cache the responses from URL links.
 This means each URL is queried only once, no matter how many times it
 appears.
+
+This is an in-memory cache, and persists only for the life of the
+C<Test::Pod::LinkCheck::Lite> object.
 
 The default is true.
 
@@ -1444,6 +1480,17 @@ The logic (if any) in changing the default behaviour is that C<5xx>
 errors can represent actual server problems rather than errors in the
 link being checked, so changing the default behaviour eliminates
 possible false positives.
+
+=item user_agent
+
+Added in version 0.011
+
+This argument is either a class name or an object. Either way, it must
+be a subclass of L<HTTP::Tiny|HTTP::Tiny>.
+
+If a class name is passed, the class must already be loaded. An object
+of that class will be instantiated by calling its C<new()> method --
+with the agent argument if that was specified,
 
 =back
 
