@@ -1,3 +1,7 @@
+Note to self: Be sure I credit Mark Gardner (mjgardner) for the
+IO::Socket::SSL (etc) change. I don't think I did so in the commit
+message.
+
 0.010		2022-09-29	T. R. Wyant
     Localize $_ before while (<>).
 
