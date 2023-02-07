@@ -13,7 +13,7 @@ use File::Spec;
 use List::Util qw{ uniq };
 use Pod::Usage;
 
-our $VERSION = '0.010';
+our $VERSION = '0.010_01';
 
 use constant PATH_SEP	=> qr/ $Config{path_sep} /smx;
 use constant MANPATH_APPEND	=> qr/ (?<= $Config{path_sep} \z ) /smx;
