@@ -1,4 +1,4 @@
-0.010_01	2023-02-07	T. R. Wyant
+0.011		2023-02-14	T. R. Wyant
     Add user_agent argument to new().  This allows the user to specify a
     subclass of HTTP::Tiny, to implement extra client functionality such
     as a persistent cache, Thanks to Graham (plicease) for letting me
