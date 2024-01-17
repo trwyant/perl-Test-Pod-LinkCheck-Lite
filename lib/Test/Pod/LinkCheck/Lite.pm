@@ -1103,7 +1103,9 @@ sub __token_start {
 	foreach my $name ( qw{ section to } ) {
 	    my $sect = $token->attr( $name )
 		or next;
-	    @{ $sect }[ 2 .. $#$sect ] = ( _normalize_text( "$sect" ) );
+	    my $norm = _normalize_text( "$sect" );
+	    splice @{ $sect }, 2;
+	    push @{ $sect }, $norm;
 	}
 	push @{ $attr->{links} }, [ @{ $token }[ 1 .. $#$token ] ];
     } elsif ( 'X' eq $tag ) {
