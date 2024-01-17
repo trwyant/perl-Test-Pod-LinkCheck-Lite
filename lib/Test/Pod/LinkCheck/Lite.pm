@@ -179,6 +179,12 @@ sub _default_ignore_url {
     }
 }
 
+sub _default_add_dir {
+    -d 'blib/script'
+	and return [ 'blib/script' ];
+    return [];
+}
+
 sub _default_module_index {
     my @handlers;
     foreach ( keys %Test::Pod::LinkCheck::Lite:: ) {
@@ -205,6 +211,12 @@ sub _default_skip_server_errors {
 
 sub _default_user_agent {
     return USER_AGENT_CLASS;
+}
+
+sub _init_add_dir {
+    my ( $self, $name, $value ) = @_;
+    $self->{$name} = [ grep { -d } ref $value ? @{ $value } : $value ];
+    return;
 }
 
 sub _init_allow_man_spaces {
@@ -632,8 +644,10 @@ sub __build_test_msg {
 # for module documentation (whether in the .pm or a separate .pod), or
 # regular .pod documentation (e.g. perldelta.pod).
 sub _get_installed_doc_info {
-    my ( undef, $module ) = @_;
+    my ( $self, $module ) = @_;
     my $pd = Pod::Perldoc->new();
+
+    local @INC = ( @{ $self->{add_dir} }, @INC );
 
     # Pod::Perldoc writes to STDERR if the module (or whatever) is not
     # installed, so we localize STDERR and reopen it to the null device.
@@ -1297,6 +1311,15 @@ as name/value pairs.
 The following arguments are supported:
 
 =over
+
+=item add_dir
+
+This argument is the name of a directory to search for extra POD, or a
+reference to an array of such directories. Directories that do not
+actually exist will be eliminated.
+
+The default is F<blib/script> if it exists, because otherwise links from
+modules to scripts will not be resolved.
 
 =item agent
 

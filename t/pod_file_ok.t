@@ -493,6 +493,29 @@ foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
     $t->pod_file_ok( 't/data/pod_ok/external_uninstalled.pod' );
 }
 
+{
+    my $t = Test::Pod::LinkCheck::Lite->new(
+	add_dir	=> 't/data/script',
+    );
+
+    note 'Link to unusual place works if we are told where it is';
+    $t->pod_file_ok( 't/data/not_ok/link_off_the_map.pod' );
+}
+
+{
+    my $t = Test::Pod::LinkCheck::Lite->new();
+
+    note 'Link to unusual place fails unless we are told where it is';
+
+    my $errors;
+    TODO: {
+	local $TODO = 'Deliberate failure';
+	$errors = $t->pod_file_ok( 't/data/not_ok/link_off_the_map.pod' );
+    }
+    cmp_ok $errors, '==', 2,
+	'Got two errors if unusual location not identified';
+}
+
 done_testing;
 
 sub Boolean {
