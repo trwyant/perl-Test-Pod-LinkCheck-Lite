@@ -1,3 +1,6 @@
+0.011_02	2024-01-24	T. R. Wyant
+    Fix test failures when https: is not available. I hope.
+
 0.011_01	2024-01-16	T. R. Wyant
     Fix noise in xt/author/perlpod.t.
 
