@@ -18,7 +18,6 @@ use Module::Load::Conditional ();	# Core since 5.9.5
 use Pod::Perldoc ();		# Core since 5.8.1
 use Pod::Simple ();		# Core since 5.9.3
 use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
-use Scalar::Util ();		# Core since 5.7.3
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
 
@@ -349,8 +348,8 @@ sub _init_skip_server_errors {
 
 sub _init_user_agent {
     my ( $self, $name, $value ) = @_;
-    defined $name
-	or $name = USER_AGENT_CLASS;
+    defined $value
+	or $value = USER_AGENT_CLASS;
     eval {
 	$value->isa( USER_AGENT_CLASS )
     } or Carp::confess(
@@ -414,6 +413,11 @@ sub allow_man_spaces {
 sub cache_url_response {
     my ( $self ) = @_;
     return $self->{cache_url_response}
+}
+
+sub can_ssl {
+    my ( $self ) = @_;
+    return $self->{user_agent}->can_ssl();
 }
 
 sub check_external_sections {
@@ -928,7 +932,8 @@ sub _handle_url {
 	or return $self->_fail( $link, 'contains no url' );
 
     if ( $url =~ m/ \A https : /smxi ) {
-	my ( $ok, $why ) = USER_AGENT_CLASS->can_ssl();
+	$DB::single = 1;
+	my ( $ok, $why ) = $self->can_ssl();
 	unless ( $ok ) {
 	    $self->{_ssl_warning}
 		or $TEST->diag( "Can not check https: links: $why" );
@@ -1556,6 +1561,14 @@ This method returns the value of the C<'allow_man_spaces'> attribute.
    and say 'URL responses are cached';
 
 This method returns the value of the C<'cache_url_response'> attribute.
+
+=head2 can_ssl
+
+Added in version 0.012.
+
+This convenience method wraps the user agent's method of the same name.
+See C<can_ssl()> in the user agent's documentation for what is returned.
+This will be L<HTTP::Tiny|HTTP::Tiny> by default.
 
 =head2 check_external_sections
 

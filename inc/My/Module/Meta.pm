@@ -161,7 +161,6 @@ sub requires {
 	'Pod::Simple'			=> 0,
 	'Pod::Simple::LinkSection'	=> 0,
 	'Pod::Simple::PullParser'	=> 0,
-	'Scalar::Util'	=> 0,
 	'Storable'	=> 0,
 	'Test::Builder'	=> 0,
 	constant	=> 0,
