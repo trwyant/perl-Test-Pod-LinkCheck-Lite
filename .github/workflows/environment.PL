@@ -50,11 +50,15 @@ sub compute_environment {
         eval {
             require File::HomeDir;
             $my_home = File::HomeDir->my_home();
+            print "Home from File::HomeDir\n";
             1;
-        } or $my_home = $ENV{HOME};
+        } or do {
+            $my_home = $ENV{HOME};
+            print "Home from \$HOME\n";
+        };
     }
     my %env = (
-        MY_HOME             => File::HomeDir->my_home(),
+        MY_HOME             => $my_home,
         MY_IS_GITHUB_ACTION => 1,
         MY_IS_UNIX          => $is_unix,
         MY_IS_WINDOWS       => $is_windows,
