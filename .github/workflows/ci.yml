@@ -79,6 +79,8 @@ jobs:
         perl -v
 
     - name: Customize environment
+      id: customize_environment
+      continue-on-error: true
       run: |
         cpanm -v
         cpanm File::HomeDir Getopt::Long version
