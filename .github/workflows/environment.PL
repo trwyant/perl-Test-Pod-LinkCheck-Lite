@@ -144,6 +144,23 @@ The specification of the C<podlators> distribution to install.
 Emptu if the version that comes with the running Perl is OK. This
 is needed because Module::Build requires it.
 
+=head1 INVOCATION AS MODULINO
+
+This script can also be used (or required) as a modulino. When you do
+this, the following subroutines get loaded into C<main::>:
+
+=head2 compute_environment
+
+This subroutine takes no arguments. It returns a reference to a hash
+that describes the environment variables to be added to the environment.
+
+=head2 want_pod_man
+
+This subroutine takes as its argument a L<version|version> object. It
+returns the computed value of the C<MY_WANT_POD_MAN> environment
+variable. If no argument is given, the computation is for the running
+Perl.
+
 =head1 AUTHOR
 
 Thomas R. Wyant, III F<wyant at cpan dot org>
