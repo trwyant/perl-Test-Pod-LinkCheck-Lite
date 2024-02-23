@@ -932,7 +932,6 @@ sub _handle_url {
 	or return $self->_fail( $link, 'contains no url' );
 
     if ( $url =~ m/ \A https : /smxi ) {
-	$DB::single = 1;
 	my ( $ok, $why ) = $self->can_ssl();
 	unless ( $ok ) {
 	    $self->{_ssl_warning}
