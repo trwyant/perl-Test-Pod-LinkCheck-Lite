@@ -19,6 +19,7 @@ my $dump;
 
 GetOptions( \%opt,
     qw{
+	add_dir|add-dir=s@
 	allow_redirect_to_index|allow-redirect-to-index!
 	check_url|check-url! ignore_url|ignore-url=s@ man!
 	prohibit_redirect|prohibit-redirect!
