@@ -1,3 +1,8 @@
+0.012_02	2024-02-24	T. R. Wyant
+    Correct corrected add_dir functionality. The previous worked for
+    scripts (which was what I needed) but not modules with multi-level
+    names.
+
 0.012_01	2024-02-23	T. R. Wyant
     Fix bug in add_dir functionality.
 
