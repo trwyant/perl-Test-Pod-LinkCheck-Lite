@@ -82,6 +82,18 @@ test-pod-links - Test a POD file, or literal POD.
 
 =head1 OPTIONS
 
+=head2 --add-dir
+
+ --add-dir=eg/
+
+This option specifies a directory to add to the search for the targets
+of external POD links. This option can be specified multiple times. If
+not specified at all, the default is
+
+ --add-dir=blib/script
+
+provided that directory exists.
+
 =head2 -allow-redirect-to-index
 
 This Boolean option implies L<-prohibit-redirect|/-prohibit-redirect>,
