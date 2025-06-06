@@ -1,5 +1,6 @@
 Build.PL
 Changes
+CONTRIBUTING
 eg/manpath.PL
 eg/README
 eg/test-pod-links
@@ -14,6 +15,7 @@ MANIFEST
 META.json
 META.yml
 README
+SECURITY
 t/basic.t
 t/data/_cpan/Metadata
 t/data/_http/status
