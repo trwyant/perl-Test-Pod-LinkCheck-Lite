@@ -8,8 +8,8 @@ inc/Mock/HTTP/Tiny.pm
 inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
 lib/Test/Pod/LinkCheck/Lite.pm
-LICENSES/Artistic
-LICENSES/Copying
+LICENSE-Artistic
+LICENSE-GPL
 Makefile.PL
 MANIFEST
 META.json
