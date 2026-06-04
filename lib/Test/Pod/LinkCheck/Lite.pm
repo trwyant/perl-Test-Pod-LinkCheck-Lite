@@ -86,7 +86,6 @@ use constant MAYBE_IGNORE_GITHUB	=> sub {
 
 use constant USER_AGENT_CLASS	=> 'HTTP::Tiny';
 
-
 # NOTE that Test::Builder->new() gets us a singleton. For this reason I
 # use $Test::Builder::Level (localized) to get tests reported relative
 # to the correct file and line, rather than setting the 'level'
@@ -1739,8 +1738,7 @@ Junior were particularly useful to me.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://rt.cpan.org/Public/Dist/Display.html?Name=Test-Pod-LinkCheck-Lite>,
-L<https://github.com/trwyant/perl-Test-Pod-LinkCheck-Lite/issues>, or in
+L<https://github.com/trwyant/perl-Test-Pod-LinkCheck-Lite/issues> or in
 electronic mail to the author.
 
 =head1 AUTHOR

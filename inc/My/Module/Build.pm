@@ -119,8 +119,6 @@ sub harness_switches {
     return @res;
 }
 
-
-
 1;
 
 __END__
@@ -170,8 +168,7 @@ C<--test_files> argument.
 =head1 SUPPORT
 
 Support is by the author. Please file bug reports at
-L<https://rt.cpan.org/Public/Dist/Display.html?Name=Test-Pod-LinkCheck-Lite>,
-L<https://github.com/trwyant/perl-Test-Pod-LinkCheck-Lite/issues>, or in
+L<https://github.com/trwyant/perl-Test-Pod-LinkCheck-Lite/issues> or in
 electronic mail to the author.
 
 =head1 AUTHOR
