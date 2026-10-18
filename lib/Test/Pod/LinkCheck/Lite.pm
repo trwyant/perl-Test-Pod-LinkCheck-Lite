@@ -659,7 +659,7 @@ sub _get_installed_doc_info {
 
     # NOTE we have to do this by hand, because Pod::Perldoc searches
     # Perl's bin/ BEFORE the contents of @INC.
-    ( my $file = $module ) =~ s(::)('/)g;
+    ( my $file = $module ) =~ s(::)(/)g;
     foreach my $dir ( @{ $self->{add_dir} } ) {
 	foreach my $ext ( '', qw{ .pod .pm } ) {
 	    my $path = "$dir/$file$ext";
