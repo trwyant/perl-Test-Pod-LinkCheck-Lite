@@ -8,6 +8,7 @@ use warnings;			# Core since 5.6.0
 use utf8;			# Core since 5.6.0
 
 use B::Keywords ();		# Not core
+use CHI;			# Not core
 use Exporter ();		# Core since 5.0
 use File::Find ();		# Core since 5.0
 use File::Spec;			# Core since 5.4.5
@@ -426,6 +427,14 @@ sub check_external_sections {
 sub check_url {
     my ( $self ) = @_;
     return $self->{check_url}
+}
+
+sub clear_url_cache {
+    my ( $self ) = @_;
+    my $cache = $self->__url_cache_object()
+	or return;
+    $cache->clear();
+    return;
 }
 
 sub configuration {
@@ -919,6 +928,8 @@ sub _get_module_index_cpan_meta_db {
 
     my %hash;
 
+    # TODO use general URL cache
+
     return [
 	sub {
 	    exists $hash{$_[0]}
@@ -931,6 +942,61 @@ sub _get_module_index_cpan_meta_db {
     ];
 }
 
+# Package-private. For the use of tools/ scripts.
+sub __url_cache_head {
+    my ( $self, $url ) = @_;
+    $self->{_url_cache} ||= $self->_initialize_url_cache();
+    return $self->{_url_cache}{head}->( $url );
+}
+
+# Package-private. Exists so that it can be overridden for testing.
+sub __url_cache_namespace { return 'Default' }
+
+# Package-private. For the use of tools/ scripts.
+sub __url_cache_object {
+    my ( $self ) = @_;
+    $self->{_url_cache} ||= $self->_initialize_url_cache();
+    return $self->{_url_cache}{cache};
+}
+
+# Package-private. For the use of tools/ scripts.
+sub __url_cache_path {
+    ( my $dir = __PACKAGE__ ) =~ s/::/_/smxg;
+    return File::Spec->catdir( File::Spec->tmpdir(), $dir );
+}
+
+sub _initialize_url_cache {
+    my ( $self ) = @_;
+    my ( $cache, $head );
+    my $ua = $self->_user_agent();
+    if ( $self->cache_url_response() ) {
+	$cache = CHI->new(
+	    driver	=> 'File',
+	    namespace	=> __url_cache_namespace(),
+	    root_dir	=> __url_cache_path(),
+	);
+	$head = sub {
+	    my ( $url ) = @_;
+	    return Storable::thaw(
+		$cache->compute(
+		    $url,
+		    86400,
+		    sub {
+			return Storable::freeze(
+			    $ua->head( $url ) );
+		    },
+		),
+	    );
+	};
+    } else {
+	$head = sub { return $ua->head( $_[0] ); };
+    }
+    return {
+	cache	=> $cache,
+	head	=> $head,
+    };
+}
+
 # Handle url links. This is something like L<http://...> or
 # L<...|http://...>.
 sub _handle_url {
@@ -938,8 +1004,6 @@ sub _handle_url {
 
     $self->check_url()
 	or return $self->_skip( $link, 'not checked; url checks disabled' );
-
-    my $user_agent = $self->_user_agent();
 
     my $url = "$link->[1]{to}"	# Stringify object
 	or return $self->_fail( $link, 'contains no url' );
@@ -958,13 +1022,7 @@ sub _handle_url {
     $self->__ignore_url( $url )
 	and return $self->_skip( $link, 'not checked; explicitly ignored' );
 
-    my $resp;
-    if ( $self->cache_url_response() ) {
-	$resp = $self->{_cache_url_response}{$url} ||=
-	    $user_agent->head( $url );
-    } else {
-	$resp = $user_agent->head( $url );
-    }
+    my $resp = $self->__url_cache_head( $url );
 
     if ( $resp->{success} ) {
 
@@ -1599,6 +1657,11 @@ This method returns the value of the C<'check_url'> attribute.
  $t->check_url() and say 'URL links are checked';
 
 This method returns the value of the C<'check_url'> attribute.
+
+=head2 clear_url_cache
+
+This method clears the URL cache. It does nothing if
+C<cache_url_response> is false.
 
 =head2 configuration
 

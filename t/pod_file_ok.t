@@ -51,6 +51,18 @@ BEGIN {
     local $Test::Pod::LinkCheck::Lite::DIRECTORY_LEADER = '_';
     require Test::Pod::LinkCheck::Lite;
     Test::Pod::LinkCheck::Lite->import( qw{ :const } );
+
+    # TODO this would be much less hacky in Test2
+
+    no warnings qw{ redefine };
+    *Test::Pod::LinkCheck::Lite::__url_cache_namespace = sub {
+	return 'Test' };
+    my $new = Test::Pod::LinkCheck::Lite->can( 'new' );
+    *Test::Pod::LinkCheck::Lite::new = sub {
+	my $self = $new->( @_ );
+	$self->clear_url_cache();
+	return $self;
+    };
 }
 
 my $have_https;
@@ -142,10 +154,6 @@ EOD
     $t->pod_file_ok( 't/data/pod_ok/empty.pod' );
 
     $t->pod_file_ok( 't/data/pod_ok/no_links.pod' );
-
-    @rslt = $t->pod_file_ok( 't/data/pod_ok/url_links.pod' );
-    is_deeply \@rslt, [ 0, 1, $have_https ? 0 : 1 ],
-	'Test of t/data/pod_ok/url_links.pod returned proper data';
 
     SKIP: {
 	$t->man()
@@ -277,12 +285,22 @@ EOD
     };
 }
 
-foreach my $check_url ( 0, 1 ) {
+foreach (
+    [ 0, 0 ],
+    [ 1, 0 ],
+    [ 1, 1 ],
+) {
+    my ( $check_url, $cache_url_response ) = @$_;
     my $t = Test::Pod::LinkCheck::Lite->new(
 	check_url	=> $check_url,
+	cache_url_response	=> $cache_url_response,
     );
 
-    note "Test with explicitly-specified check_url => $check_url";
+    note <<"EOD";
+Test with explicitly-specified
+    check_url => $check_url,
+    cache_url_response => $cache_url_response,
+EOD
 
     if ( $check_url ) {
 	$t->pod_file_ok( 't/data/pod_ok/url_links.pod' );

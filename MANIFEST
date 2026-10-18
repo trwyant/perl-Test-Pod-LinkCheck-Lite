@@ -45,6 +45,7 @@ t/data/pod_ok/no_links.pod
 t/data/pod_ok/url_links.pod
 t/data/script/hello
 t/pod_file_ok.t
+tools/url_cache
 xt/author/basic.t
 xt/author/changes.t
 xt/author/critic.t

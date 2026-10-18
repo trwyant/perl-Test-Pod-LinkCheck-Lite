@@ -1,0 +1,147 @@
+#!/usr/bin/env perl
+
+use 5.008;
+
+use strict;
+use warnings;
+
+use Getopt::Long 2.33 qw{ :config auto_version };
+use Pod::Usage;
+use Test::Pod::LinkCheck::Lite;
+use YAML;
+
+our $VERSION = '0.014';
+
+my %opt;
+
+GetOptions( \%opt,
+    help => sub { pod2usage( { -verbose => 2 } ) },
+) and @ARGV or pod2usage( { -verbose => 0 } );
+
+my $code = __PACKAGE__->can( "cmd_$ARGV[0]" )
+    or die "Unknown command '$ARGV[0]'";
+
+my $t = Test::Pod::LinkCheck::Lite->new(
+    check_url	=> 1,
+    cache_url_response	=> 1,
+);
+
+$code->( $t, @ARGV );
+
+sub cmd_clear {
+    my ( $t ) = @_;
+    $t->clear_url_cache();
+    return;
+}
+
+sub cmd_expire {
+    my ( $t, undef, $url ) = @_;
+    $t->__url_cache_object()->expire( $url );
+}
+
+sub cmd_head {
+    my ( $t, undef, $url ) = @_;
+    my $resp = $t->__url_cache_head( $url );
+    print Dump( $resp );
+}
+
+sub cmd_list {
+    my ( $t ) = @_;
+    foreach my $key ( $t->__url_cache_object()->get_keys() ) {
+	print "$key\n";
+    }
+    return;
+}
+
+sub cmd_path {
+    my ( $t ) = @_;
+    print $t->__url_cache_path(), "\n";
+    return;
+}
+
+sub cmd_purge {
+    my ( $t ) = @_;
+    $t->__url_cache_object()->purge();
+    return;
+}
+
+__END__
+
+=head1 TITLE
+
+url_cache - Manipulate the persistant URL cache.
+
+=head1 SYNOPSIS
+
+ url_cache list
+ url_cache --help
+ url_cache --version
+
+=head1 OPTIONS
+
+=head2 --help
+
+This option displays the documentation for this script. The script then
+exits.
+
+=head2 --version
+
+This option displays the version of this script. The script then exits.
+
+=head1 DETAILS
+
+This Perl script manipulates the persistant URL status cache. The action
+taken depends on the command arguments. This first such is the name of
+the subcommand, followed by arguments to the subcommand, if any. The
+subcommands currently implemented are:
+
+=over
+
+=item clear
+
+This subcommand removes all entries from the cache.
+
+=item expire E<lt>urlE<gt>
+
+This subcommand expires the entry for the given URL, if any.
+
+=item head E<lt>urlE<gt>
+
+This subcommand retrieves the results of a C<HEAD> request for the given
+C<URL>, from the cache if it is there, or from the internet. By results
+we mean the L<HTTP::Tiny|HTTP::Tiny> respomnse hash, formatted by
+L<YAML|YAML>.
+
+=item list
+
+This subcommand lists the URLs in the cache.
+
+=item path
+
+This subcommand displays the path to the cache.
+
+=item purge
+
+This subcommand removes expired entries from the cache.
+
+=back
+
+=head1 AUTHOR
+
+Thomas R. Wyant, III F<wyant at cpan dot org>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2026 by Thomas R. Wyant, III
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl 5.10.0. For more details, see the full text
+of the licenses in the files F<LICENSE-Artistic> and F<LICENSE-GPL>.
+
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=cut
+
+# ex: set textwidth=72 :
