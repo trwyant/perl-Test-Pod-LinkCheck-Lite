@@ -924,19 +924,11 @@ sub _get_module_index_cpan {
 sub _get_module_index_cpan_meta_db {
     my ( $self ) = @_;
 
-    my $user_agent = $self->_user_agent();
-
-    my %hash;
-
-    # TODO use general URL cache
-
     return [
 	sub {
-	    exists $hash{$_[0]}
-		and return $hash{$_[0]};
-	    my $resp = $user_agent->head(
+	    my $resp = $self->__url_cache_head(
 		"https://cpanmetadb.plackperl.org/v1.0/package/$_[0]" );
-	    return ( $hash{$_[0]} = $resp->{success} );
+	    return $resp->{success};
 	},
 	time - 86400 * 7,
     ];
