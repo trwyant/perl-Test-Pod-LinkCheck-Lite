@@ -81,8 +81,8 @@ sub want_modules {
         [ qw{ 5.014000  } ],
 	[ qw{ 5.012000 String::RewritePrefix@0.008 } ],
 	[ qw{ 5.010001 String::RewritePrefix@0.008 Pod::Text@4.14 } ],
-	[ qw{ 5.008009 Data::OptList@0.113 Sub::Exporter@0.990 String::RewritePrefix@0.008 Pod::Text@4.14 XSLoader@0.10 } ],
-	[ qw{ 5.008000 Data::OptList@0.113 Sub::Exporter@0.990 String::RewritePrefix@0.008 Pod::Text@4.14 XSLoader@0.10 } ],
+	[ qw{ 5.008009 Carp::Assert@0.20 Data::OptList@0.113 Sub::Exporter@0.990 String::RewritePrefix@0.008 Pod::Text@4.14 XSLoader@0.10 } ],
+	[ qw{ 5.008000 Carp::Assert@0.20 Data::OptList@0.113 Sub::Exporter@0.990 String::RewritePrefix@0.008 Pod::Text@4.14 XSLoader@0.10 } ],
     ) {
         my ( $version, @want ) = @{ $_ };
         $perl_ver >= $version
