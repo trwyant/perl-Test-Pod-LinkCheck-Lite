@@ -10,7 +10,7 @@ use Pod::Usage;
 use Test::Pod::LinkCheck::Lite;
 use YAML;
 
-our $VERSION = '0.014';
+our $VERSION = '0.014_001';
 
 my %opt;
 

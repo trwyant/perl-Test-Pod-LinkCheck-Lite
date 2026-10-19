@@ -143,7 +143,7 @@ sub optional_modules {
     return ( qw{ IO::Socket::SSL Net::SSLeay } );
 }
 
-sub release_status { 'stable' }
+sub release_status { 'unstable' }
 
 sub requires {
     my ( $self, @extra ) = @_;

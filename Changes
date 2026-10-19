@@ -1,3 +1,16 @@
+0.014_001	2026-10-19	T. R. Wyant
+    Fix apparant typo in POD logic. This would have caused the {add_dir}
+    directories not to be correctly searched if the module name had one
+    or more double colons.
+
+    Put CPAN::Meta::DB query results in persistant cache.
+
+    Replace volatile cache with persistant cache,
+
+    Correct Makefile.PL EUMM version accommodations.
+
+    Add explicit release_status to metadata.
+
 0.014		2026-06-11	T. R. Wyant
     Remove references to the RT bug tracking system.
 

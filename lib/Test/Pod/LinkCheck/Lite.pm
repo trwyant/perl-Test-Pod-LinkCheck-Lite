@@ -21,7 +21,7 @@ use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
 
-our $VERSION = '0.014';
+our $VERSION = '0.014_001';
 
 our @ISA = qw{ Exporter };
 
