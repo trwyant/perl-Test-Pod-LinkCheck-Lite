@@ -1,7 +1,5 @@
 package main;
 
-use 5.010001;
-
 use strict;
 use warnings;
 
@@ -13,6 +11,8 @@ load_module_or_skip_all 'PPI::Document';
 
 my $manifest = maniread();
 
+my $find = { map { $_ => 1 } qw{ $DB::single } };
+
 foreach ( sort keys %{ $manifest } ) {
 
     is_perl( $_ )
@@ -22,7 +22,6 @@ foreach ( sort keys %{ $manifest } ) {
 
     my %found;
     foreach my $elem ( @{ $doc->find( 'PPI::Token::Symbol' ) || [] } ) {
-	state $find = { map { $_ => 1 } qw{ $DB::single } };
 	$find->{ my $symbol = $elem->symbol() }
 	    or next;
 	$found{$symbol}++;
