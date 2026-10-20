@@ -1,3 +1,9 @@
+0.014_002	2026-10-20	T. R. Wyant
+    Replace CHI with hand-rolled file cache machinery. The problem with
+    CHI is that it is too heavyweight for my purposes.
+
+    Make xt/author/no_forbidden_symbols.t work under 5.8.
+
 0.014_001	2026-10-19	T. R. Wyant
     Fix apparant typo in POD logic. This would have caused the {add_dir}
     directories not to be correctly searched if the module name had one
