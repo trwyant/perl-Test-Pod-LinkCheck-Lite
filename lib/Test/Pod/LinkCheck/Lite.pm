@@ -8,10 +8,13 @@ use warnings;			# Core since 5.6.0
 use utf8;			# Core since 5.6.0
 
 use B::Keywords ();		# Not core
-use CHI;			# Not core
+use Carp ();			# Core since 5.0
+use Digest::MD5 ();		# Core since 5.7.3
 use Exporter ();		# Core since 5.0
 use File::Find ();		# Core since 5.0
+use File::Path ();		# Core since 5.7.3.
 use File::Spec;			# Core since 5.4.5
+use File::stat;			# Core since 5.4
 use HTTP::Tiny;			# Core since 5.13.9
 use IPC::Cmd ();		# Core since 5.9.5
 use Module::Load::Conditional ();	# Core since 5.9.5
@@ -433,7 +436,11 @@ sub clear_url_cache {
     my ( $self ) = @_;
     my $cache = $self->__url_cache_object()
 	or return;
-    $cache->clear();
+    File::Path::rmtree( $cache->{_cache_dir} );
+    # The -d test is pure paranoia on my part. rmtree() is documented as
+    # removing the root of the tree.
+    -d $cache->{_cache_dir}
+	or File::Path::mkpath( $cache->{_cache_dir} );
     return;
 }
 
@@ -569,6 +576,27 @@ sub pod_file_ok {
 sub prohibit_redirect {
     my ( $self ) = @_;
     return $self->{prohibit_redirect};
+}
+
+sub purge_url_cache {
+    my ( $self ) = @_;
+    my $cache = $self->__url_cache_object()
+	or return;
+    opendir my $dh, $cache->{_cache_dir}
+	or Carp::croak( "Failed to open $cache->{_cache_dir}: $!" );
+    while ( defined( my $file = readdir $dh ) ) {
+	$file =~ m/ [^[:xdigit:]] /smx
+	    and next;
+	my $path = File::Spec->catfile( $cache->{_cache_dir}, $file );
+	stat( $path )->mtime + $cache->{expires_in} > time
+	    and next;
+	unlink $path
+	    and next;
+	my $data = Storable::retrieve( $path );
+	Carp::carp( "Failed to purge $data->{key}: $!" );
+    }
+    closedir $dh;
+    return;
 }
 
 sub require_installed {
@@ -906,9 +934,9 @@ sub _get_module_index_cpan {
 	defined $dir
 	    or next;
 	my $path = File::Spec->catfile( $dir, $DOT_CPAN, 'Metadata' );
-	-e $path
+	my $stat = stat $path
 	    or next;
-	my $rev = ( stat _ )[9];
+	my $rev = $stat->mtime();
 	my $hash = Storable::retrieve( $path )
 	    or return;
 	$hash = $hash->{'CPAN::Module'};
@@ -930,7 +958,7 @@ sub _get_module_index_cpan_meta_db {
 		"https://cpanmetadb.plackperl.org/v1.0/package/$_[0]" );
 	    return $resp->{success};
 	},
-	time - 86400 * 7,
+	time - 86_400 * 7,
     ];
 }
 
@@ -962,23 +990,34 @@ sub _initialize_url_cache {
     my ( $cache, $head );
     my $ua = $self->_user_agent();
     if ( $self->cache_url_response() ) {
-	$cache = CHI->new(
-	    driver	=> 'File',
+	my $expires_in = 86_400;	# One day
+	my %stash = (
 	    namespace	=> __url_cache_namespace(),
 	    root_dir	=> __url_cache_path(),
+	    expires_in	=> $expires_in,
 	);
+	my $path = File::Spec->catdir(
+	    map { $stash{$_} } qw{ root_dir namespace } );
+	$stash{_cache_dir} = $path;
+	-d $path
+	    or File::Path::mkpath( $path )
+	    or Carp::croak( "Unable to create $path: $!" );
+	$cache = \%stash;
 	$head = sub {
 	    my ( $url ) = @_;
-	    return Storable::thaw(
-		$cache->compute(
-		    $url,
-		    86400,
-		    sub {
-			return Storable::freeze(
-			    $ua->head( $url ) );
-		    },
-		),
-	    );
+	    my $key_digest = Digest::MD5::md5_hex( $url );
+	    my $key_path = File::Spec->catfile( $path, $key_digest );
+	    if ( -e $key_path ) {
+		my $stat = stat $key_path;
+		$stat->mtime() + $expires_in > time
+		    and return Storable::retrieve( $key_path )->{data};
+	    }
+	    my $data = $ua->head( $url );
+	    Storable::nstore( {
+		    key	=> $url,
+		    data	=> $data,
+		}, $key_path );
+	    return $data;
 	};
     } else {
 	$head = sub { return $ua->head( $_[0] ); };
@@ -1705,6 +1744,12 @@ failures, passes, and skipped tests, in that order.
 Added in version 0.004.
 
 This method returns the value of the C<'prohibit_redirect'> attribute.
+
+=head2 purge_url_cache
+
+Added in version 0.015.
+
+This method purges the URL cache, removing all expired entries.
 
 =head2 require_installed
 

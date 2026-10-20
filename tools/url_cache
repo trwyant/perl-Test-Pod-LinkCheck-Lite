@@ -5,6 +5,9 @@ use 5.008;
 use strict;
 use warnings;
 
+use Digest::MD5 qw{ md5_hex };
+use File::Spec;
+use File::stat;
 use Getopt::Long 2.33 qw{ :config auto_version };
 use Pod::Usage;
 use Test::Pod::LinkCheck::Lite;
@@ -36,20 +39,43 @@ sub cmd_clear {
 
 sub cmd_expire {
     my ( $t, undef, $url ) = @_;
-    $t->__url_cache_object()->expire( $url );
+    my $key_digest = md5_hex( $url );
+    my $cache = $t->__url_cache_object();
+    my $path = File::Spec->catfile( $cache->{_cache_dir}, $key_digest );
+    my $stat = stat $path
+	or return;
+    my $now = time;
+    $stat->mtime() + $cache->{expires_in} <= $now
+	and return;
+    my $utime = $now - $cache->{expires_in};
+    utime $utime, $utime, $path
+	and return;
+    die "Failed to expire $url: $!\n";
 }
 
 sub cmd_head {
     my ( $t, undef, $url ) = @_;
     my $resp = $t->__url_cache_head( $url );
     print Dump( $resp );
+    return;
 }
 
 sub cmd_list {
     my ( $t ) = @_;
-    foreach my $key ( $t->__url_cache_object()->get_keys() ) {
-	print "$key\n";
+    my $cache = $t->__url_cache_object();
+    -d $cache->{_cache_dir}
+	or return;
+    my @keys;
+    opendir my $dh, $cache->{_cache_dir}
+	or die "Failed to open $cache->{_cache_dir}: $!\n";
+    while ( defined( my $file = readdir $dh ) ) {
+	$file =~ m/ [^[:xdigit:]] /smx
+	    and next;
+	my $path = File::Spec->catfile( $cache->{_cache_dir}, $file );
+	my $data = Storable::retrieve( $path );
+	push @keys, $data->{key};
     }
+    print "$_\n" for sort @keys;
     return;
 }
 
@@ -61,7 +87,7 @@ sub cmd_path {
 
 sub cmd_purge {
     my ( $t ) = @_;
-    $t->__url_cache_object()->purge();
+    $t->purge_url_cache();
     return;
 }
 
