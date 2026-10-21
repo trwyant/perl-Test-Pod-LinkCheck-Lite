@@ -97,7 +97,7 @@ __END__
 
 =head1 TITLE
 
-url_cache - Manipulate the persistant URL cache.
+url_cache - Manipulate the persistent URL cache.
 
 =head1 SYNOPSIS
 
@@ -118,53 +118,53 @@ This option displays the version of this script. The script then exits.
 
 =head1 DETAILS
 
-This Perl script manipulates the persistant URL status cache. The action
+This Perl script manipulates the persistent URL status cache. The action
 taken depends on the command arguments. This first such is the name of
-the subcommand, followed by arguments to the subcommand, if any. The
-subcommands currently implemented are:
+the sub-command, followed by arguments to the sub-command, if any. The
+sub-commands currently implemented are:
 
 =over
 
 =item clear
 
-This subcommand removes all entries from the cache.
+This sub-command removes all entries from the cache.
 
 =item expire E<lt>urlE<gt>
 
-This subcommand expires the entry for the given URL, if any.
+This sub-command expires the entry for the given URL, if any.
 
 =item get E<lt>urlE<gt>
 
-This subcommand displays the cached data for the given URL, if any. It
+This sub-command displays the cached data for the given URL, if any. It
 ignores expired cache entries.
 
 =item get_extant E<lt>urlE<gt>
 
-This subcommand displays the cached data for the given URL, if any.
-Unlike C<get> this subcommand displays expired data.
+This sub-command displays the cached data for the given URL, if any.
+Unlike C<get> this sub-command displays expired data.
 
 =item head E<lt>urlE<gt>
 
-This subcommand retrieves the results of a C<HEAD> request for the given
+This sub-command retrieves the results of a C<HEAD> request for the given
 C<URL>, from the cache if it is there, or from the internet. By results
-we mean the L<HTTP::Tiny|HTTP::Tiny> responnse hash, formatted by
+we mean the L<HTTP::Tiny|HTTP::Tiny> response hash, formatted by
 L<YAML|YAML>.
 
 =item list
 
-This subcommand lists all non-expired URLs in the cache.
+This sub-command lists all non-expired URLs in the cache.
 
 =item list_extant
 
-This subcommand lists all URLs in the cache, even expired ones.
+This sub-command lists all URLs in the cache, even expired ones.
 
 =item path
 
-This subcommand displays the path to the cache.
+This sub-command displays the path to the cache.
 
 =item purge
 
-This subcommand removes expired entries from the cache.
+This sub-command removes expired entries from the cache.
 
 =back
 

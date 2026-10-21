@@ -101,7 +101,7 @@ L<ALLOW_REDIRECT_TO_INDEX|Test::Pod::LinkCheck::Lite/ALLOW_REDIRECT_TO_INDEX>.
 
 This Boolean option specifies that World Wide Web access is allowed. If
 disallowed, URL links are  not checked, and the CPAN Meta database is
-not considered when trying to check links to ininstalled modules.
+not considered when trying to check links to uninstalled modules.
 
 The default is C<-check_url>, but this option can be negated by specifying
 C<-nocheck-url>.

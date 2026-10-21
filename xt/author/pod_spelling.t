@@ -14,9 +14,10 @@ BEGIN {
     Test::Spelling->import();
 }
 
-add_stopwords (<DATA>);
+add_stopwords( <DATA> );
 
-all_pod_files_spelling_ok ();
+my $lib = -d 'blib' ? 'blib' : 'lib';
+all_pod_files_spelling_ok( $lib, qw{ eg tools } );
 
 1;
 __DATA__
@@ -24,17 +25,25 @@ Alceu
 Andreas
 Anwar
 de
+darwin
 deponent
+dir
+freebsd
 Freitas
 hocery
 Kirmess
 König
+manpath
 Mohammed
 merchantability
+multifold
+openbsd
 recursed
 ReactOS
 Rezić
 Rodrigues
 sayeth
 Slaven
+VMS
 Wyant
+XCode

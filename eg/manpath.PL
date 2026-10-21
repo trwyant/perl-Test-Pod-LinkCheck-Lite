@@ -269,18 +269,18 @@ lower-case letter "ell". Think L<ls (1)>.
 
 The default is C<-no-1> if output is to a terminal, or C<-1> otherwise.
 
-=head2 -debug
+=head2 --debug
 
 If this Boolean option is asserted, debug information is sent to STDERR.
 
 The default is C<-nodebug>.
 
-=head2 -help
+=head2 --help
 
 This option displays the documentation for this script. The script then
 exits.
 
-=head2 -version
+=head2 --version
 
 This option displays the version of this script. The script then exits.
 
