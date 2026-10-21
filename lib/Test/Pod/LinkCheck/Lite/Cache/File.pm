@@ -13,7 +13,7 @@ use File::Spec;			# Core since 5.4.5
 use File::stat;			# Core since 5.4
 use Storable ();		# Core since 5.7.3
 
-our $VERSION = '0.014_002';
+our $VERSION = '0.014_003';
 
 sub new {
     my ( $class, %arg ) = @_;

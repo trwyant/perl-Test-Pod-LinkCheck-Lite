@@ -1,3 +1,10 @@
+0.014_003	2026-10-21	T. R. Wyant
+    Test POD in eg/ and tools/.
+
+    Spell-check eg/ and tools/, and fix problems.
+
+    Repackage persistant cache in separate object.
+
 0.014_002	2026-10-20	T. R. Wyant
     Replace CHI with hand-rolled file cache machinery. The problem with
     CHI is that it is too heavyweight for my purposes.
