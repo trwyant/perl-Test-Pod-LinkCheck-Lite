@@ -9,10 +9,8 @@ use utf8;			# Core since 5.6.0
 
 use B::Keywords ();		# Not core
 use Carp ();			# Core since 5.0
-use Digest::MD5 ();		# Core since 5.7.3
 use Exporter ();		# Core since 5.0
 use File::Find ();		# Core since 5.0
-use File::Path ();		# Core since 5.7.3.
 use File::Spec;			# Core since 5.4.5
 use File::stat;			# Core since 5.4
 use HTTP::Tiny;			# Core since 5.13.9
@@ -23,6 +21,7 @@ use Pod::Simple ();		# Core since 5.9.3
 use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
+use Test::Pod::LinkCheck::Lite::Cache::File;
 
 our $VERSION = '0.014_002';
 
@@ -436,11 +435,7 @@ sub clear_url_cache {
     my ( $self ) = @_;
     my $cache = $self->__url_cache_object()
 	or return;
-    File::Path::rmtree( $cache->{_cache_dir} );
-    # The -d test is pure paranoia on my part. rmtree() is documented as
-    # removing the root of the tree.
-    -d $cache->{_cache_dir}
-	or File::Path::mkpath( $cache->{_cache_dir} );
+    $cache->clear();
     return;
 }
 
@@ -582,20 +577,7 @@ sub purge_url_cache {
     my ( $self ) = @_;
     my $cache = $self->__url_cache_object()
 	or return;
-    opendir my $dh, $cache->{_cache_dir}
-	or Carp::croak( "Failed to open $cache->{_cache_dir}: $!" );
-    while ( defined( my $file = readdir $dh ) ) {
-	$file =~ m/ [^[:xdigit:]] /smx
-	    and next;
-	my $path = File::Spec->catfile( $cache->{_cache_dir}, $file );
-	stat( $path )->mtime + $cache->{expires_in} > time
-	    and next;
-	unlink $path
-	    and next;
-	my $data = Storable::retrieve( $path );
-	Carp::carp( "Failed to purge $data->{key}: $!" );
-    }
-    closedir $dh;
+    $cache->purge();
     return;
 }
 
@@ -991,32 +973,18 @@ sub _initialize_url_cache {
     my $ua = $self->_user_agent();
     if ( $self->cache_url_response() ) {
 	my $expires_in = 86_400;	# One day
-	my %stash = (
+	$cache = Test::Pod::LinkCheck::Lite::Cache::File->new(
 	    namespace	=> __url_cache_namespace(),
 	    root_dir	=> __url_cache_path(),
 	    expires_in	=> $expires_in,
 	);
-	my $path = File::Spec->catdir(
-	    map { $stash{$_} } qw{ root_dir namespace } );
-	$stash{_cache_dir} = $path;
-	-d $path
-	    or File::Path::mkpath( $path )
-	    or Carp::croak( "Unable to create $path: $!" );
-	$cache = \%stash;
 	$head = sub {
 	    my ( $url ) = @_;
-	    my $key_digest = Digest::MD5::md5_hex( $url );
-	    my $key_path = File::Spec->catfile( $path, $key_digest );
-	    if ( -e $key_path ) {
-		my $stat = stat $key_path;
-		$stat->mtime() + $expires_in > time
-		    and return Storable::retrieve( $key_path )->{data};
-	    }
-	    my $data = $ua->head( $url );
-	    Storable::nstore( {
-		    key	=> $url,
-		    data	=> $data,
-		}, $key_path );
+	    my $data;
+	    $data = $cache->get( $url )
+		and return $data;
+	    $data = $ua->head( $url );
+	    $cache->set( $url, $data );
 	    return $data;
 	};
     } else {

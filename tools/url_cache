@@ -39,18 +39,25 @@ sub cmd_clear {
 
 sub cmd_expire {
     my ( $t, undef, $url ) = @_;
-    my $key_digest = md5_hex( $url );
     my $cache = $t->__url_cache_object();
-    my $path = File::Spec->catfile( $cache->{_cache_dir}, $key_digest );
-    my $stat = stat $path
-	or return;
-    my $now = time;
-    $stat->mtime() + $cache->{expires_in} <= $now
-	and return;
-    my $utime = $now - $cache->{expires_in};
-    utime $utime, $utime, $path
-	and return;
-    die "Failed to expire $url: $!\n";
+    $cache->expire( $url );
+    return;
+}
+
+sub cmd_get {
+    my ( $t, undef, $url ) = @_;
+    my $cache = $t->__url_cache_object();
+    my $data = $cache->get( $url );
+    print Dump( $data );
+    return;
+}
+
+sub cmd_get_extant {
+    my ( $t, undef, $url ) = @_;
+    my $cache = $t->__url_cache_object();
+    my $data = $cache->get_extant( $url );
+    print Dump( $data );
+    return;
 }
 
 sub cmd_head {
@@ -63,19 +70,14 @@ sub cmd_head {
 sub cmd_list {
     my ( $t ) = @_;
     my $cache = $t->__url_cache_object();
-    -d $cache->{_cache_dir}
-	or return;
-    my @keys;
-    opendir my $dh, $cache->{_cache_dir}
-	or die "Failed to open $cache->{_cache_dir}: $!\n";
-    while ( defined( my $file = readdir $dh ) ) {
-	$file =~ m/ [^[:xdigit:]] /smx
-	    and next;
-	my $path = File::Spec->catfile( $cache->{_cache_dir}, $file );
-	my $data = Storable::retrieve( $path );
-	push @keys, $data->{key};
-    }
-    print "$_\n" for sort @keys;
+    print "$_\n" for sort $cache->get_keys();
+    return;
+}
+
+sub cmd_list_extant {
+    my ( $t ) = @_;
+    my $cache = $t->__url_cache_object();
+    print "$_\n" for sort $cache->get_extant_keys();
     return;
 }
 
@@ -131,16 +133,30 @@ This subcommand removes all entries from the cache.
 
 This subcommand expires the entry for the given URL, if any.
 
+=item get E<lt>urlE<gt>
+
+This subcommand displays the cached data for the given URL, if any. It
+ignores expired cache entries.
+
+=item get_extant E<lt>urlE<gt>
+
+This subcommand displays the cached data for the given URL, if any.
+Unlike C<get> this subcommand displays expired data.
+
 =item head E<lt>urlE<gt>
 
 This subcommand retrieves the results of a C<HEAD> request for the given
 C<URL>, from the cache if it is there, or from the internet. By results
-we mean the L<HTTP::Tiny|HTTP::Tiny> respomnse hash, formatted by
+we mean the L<HTTP::Tiny|HTTP::Tiny> responnse hash, formatted by
 L<YAML|YAML>.
 
 =item list
 
-This subcommand lists the URLs in the cache.
+This subcommand lists all non-expired URLs in the cache.
+
+=item list_extant
+
+This subcommand lists all URLs in the cache, even expired ones.
 
 =item path
 
