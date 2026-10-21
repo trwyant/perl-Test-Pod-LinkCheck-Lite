@@ -19,7 +19,8 @@ eod
     };
 }
 
-all_pod_files_ok ();
+my $lib = -d 'blib' ? 'blib' : 'lib';
+all_pod_files_ok( $lib, qw{ eg tools } );
 
 1;
 
