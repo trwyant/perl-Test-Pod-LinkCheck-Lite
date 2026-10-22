@@ -47,16 +47,14 @@ sub cmd_expire {
 sub cmd_get {
     my ( $t, undef, $url ) = @_;
     my $cache = $t->__url_cache_object();
-    my $data = $cache->get( $url );
-    print Dump( $data );
-    return;
-}
-
-sub cmd_get_extant {
-    my ( $t, undef, $url ) = @_;
-    my $cache = $t->__url_cache_object();
-    my $data = $cache->get_extant( $url );
-    print Dump( $data );
+    my $obj;
+    if ( my $value = $cache->get( $url, obj_ref => \$obj ) ) {
+	print "$url ", Dump( $value );
+    } elsif ( $obj ) {
+	print "$url is expired\n";
+    } else {
+	print "$url is not in the cache\n";
+    }
     return;
 }
 
@@ -70,14 +68,14 @@ sub cmd_head {
 sub cmd_list {
     my ( $t ) = @_;
     my $cache = $t->__url_cache_object();
-    print "$_\n" for sort $cache->get_keys();
-    return;
-}
-
-sub cmd_list_extant {
-    my ( $t ) = @_;
-    my $cache = $t->__url_cache_object();
-    print "$_\n" for sort $cache->get_extant_keys();
+    my @keys;
+    foreach ( $cache->get_keys() ) {
+	my $obj;
+	$cache->get( $_, obj_ref => \$obj );
+	$obj
+	    and push @keys, $obj->key();
+    }
+    print "$_\n" for sort @keys;
     return;
 }
 
@@ -90,6 +88,13 @@ sub cmd_path {
 sub cmd_purge {
     my ( $t ) = @_;
     $t->purge_url_cache();
+    return;
+}
+
+sub cmd_remove {
+    my ( $t, undef, $url ) = @_;
+    my $cache = $t->__url_cache_object();
+    $cache->remove( $url );
     return;
 }
 
@@ -138,11 +143,6 @@ This sub-command expires the entry for the given URL, if any.
 This sub-command displays the cached data for the given URL, if any. It
 ignores expired cache entries.
 
-=item get_extant E<lt>urlE<gt>
-
-This sub-command displays the cached data for the given URL, if any.
-Unlike C<get> this sub-command displays expired data.
-
 =item head E<lt>urlE<gt>
 
 This sub-command retrieves the results of a C<HEAD> request for the given
@@ -152,11 +152,7 @@ L<YAML|YAML>.
 
 =item list
 
-This sub-command lists all non-expired URLs in the cache.
-
-=item list_extant
-
-This sub-command lists all URLs in the cache, even expired ones.
+This sub-command lists all URLs in the cache, whether or not expired.
 
 =item path
 
@@ -165,6 +161,10 @@ This sub-command displays the path to the cache.
 =item purge
 
 This sub-command removes expired entries from the cache.
+
+=item remove E<lt>urlE<gt>
+
+This sub-command removes the given URL from the cache.
 
 =back
 

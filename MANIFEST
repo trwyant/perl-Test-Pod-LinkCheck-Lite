@@ -9,6 +9,7 @@ inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
 lib/Test/Pod/LinkCheck/Lite.pm
 lib/Test/Pod/LinkCheck/Lite/Cache/File.pm
+lib/Test/Pod/LinkCheck/Lite/CacheObject.pm
 LICENSE-Artistic
 LICENSE-GPL
 Makefile.PL

@@ -12,6 +12,7 @@ use File::Path ();		# Core since 5.7.3.
 use File::Spec;			# Core since 5.4.5
 use File::stat;			# Core since 5.4
 use Storable ();		# Core since 5.7.3
+use Test::Pod::LinkCheck::Lite::CacheObject;
 
 our $VERSION = '0.014_003';
 
@@ -66,93 +67,53 @@ sub expire {
 }
 
 sub get {
-    my ( $self, $key ) = @_;
-    my $hash = $self->_get_valid_path_hash(
-	File::Spec->catfile(
-	    $self->{_cache_dir},
-	    Digest::MD5::md5_hex( $key ),
-	),
-    ) or return;
-    return $hash->{data};
-}
-
-sub get_extant {	# Like get() but gets expired elements,
-    my ( $self, $key ) = @_;
-    my $path = File::Spec->catfile(
-	$self->{_cache_dir},
-	Digest::MD5::md5_hex( $key ),
-    );
-    -e $path
-	or return;
-    return Storable::retrieve( $path )->{data};
+    my ( $self, $key, %arg ) = @_;
+    my $path = $self->_path_to_key( $key );
+    my $obj = $self->_get_cache_object( $path );
+    $arg{obj_ref}
+	and ${$arg{obj_ref}} = $obj;
+    $obj
+	and not $obj->is_expired()
+	and return $obj->value();
+    return undef;	## no critic (ProhibitExplicitReturnUndef)
 }
 
 sub get_keys {
     my ( $self ) = @_;
-    my @keys;
-    foreach my $key_hash ( $self->_get_cache_key_hashes() ) {
-	my $hash = $self->_get_valid_path_hash(
-	    File::Spec->catfile(
-		$self->{_cache_dir},
-		$key_hash,
-	    ),
-	) or next;
-	push @keys, $hash->{key};
-    }
-    return @keys;
-}
-
-sub get_extant_keys {
-    my ( $self ) = @_;
-    my @keys;
-    foreach my $key_hash ( $self->_get_cache_key_hashes() ) {
-	my $hash = $self->_get_path_hash(
-	    File::Spec->catfile(
-		$self->{_cache_dir},
-		$key_hash,
-	    ),
-	) or next;
-	push @keys, $hash->{key};
-    }
-    return @keys;
+    return $self->_get_cache_key_hashes();
 }
 
 sub purge {
     my ( $self ) = @_;
     foreach my $key_hash ( $self->_get_cache_key_hashes() ) {
-	my $path = File::Spec->catfile( $self->{_cache_dir}, $key_hash );
+	my $path = $self->_path_to_key( $key_hash );
 	$self->_is_valid( $path )
 	    and next;
 	unlink $path
 	    and next;
-	my $data = Storable::retrieve( $path );
-	Carp::carp( "Failed to purge $data->{key}: $!" );
+	$! == ENOENT
+	    and next;
+	my $hash = Storable::retrieve( $path );
+	Carp::carp( "Failed to purge $hash->{key}: $!" );
     }
     return $self;
 }
 
 sub remove {
     my ( $self, $key ) = @_;
-    my $path = File::Spec->catfile(
-	$self->{_cache_dir},
-	Digest::MD5::md5_hex( $key ),
-    );
-    unless ( unlink $path ) {
-	$! == ENOENT
-	    or Carp::croak( "Failed to remove $key: $!" );
+    my $path = $self->_path_to_key( $key );
+    unless ( unlink $path or $! == ENOENT ) {
+	Carp::croak( "Failed to remove $key: $!" );
     }
     return $self;
 }
 
 sub set {
-    my ( $self, $key, $data ) = @_;
-    my $path = File::Spec->catfile(
-	$self->{_cache_dir},
-	Digest::MD5::md5_hex( $key ),
-    );
+    my ( $self, $key, $value ) = @_;
+    my $path = $self->_path_to_key( $key );
     Storable::nstore( {
 	    key  => $key,
-	    data => $data,
+	    value => $value,
 	},
 	$path,
     );
@@ -173,16 +134,15 @@ sub _get_cache_key_hashes {
     return @keys;
 }
 
-sub _get_path_hash {
-    my ( undef, $path ) = @_;	# Invocant unused
-    return Storable::retrieve( $path );
-}
-
-sub _get_valid_path_hash {
-    my ( $self, $path ) = @_;
-    $self->_is_valid( $path )
-	or return;
-    return Storable::retrieve( $path );
+sub _get_cache_object {
+    my ( $self, $path ) = @_;	# Invocant unused
+    if ( my $stat = stat $path ) {
+	my $hash = Storable::retrieve( $path );
+	$hash->{created_at} = $stat->mtime();
+	$hash->{expires_at} = $hash->{created_at} + $self->{expires_in};
+	return Test::Pod::LinkCheck::Lite::CacheObject->__new( $hash );
+    }
+    return undef;	## no critic (ProhibitExplicitReturnUndef)
 }
 
 sub _is_valid {
@@ -193,6 +153,15 @@ sub _is_valid {
     $stat->mtime() + $self->{expires_in} > time
 	and return 1;
     return;
+}
+
+sub _path_to_key {
+    my ( $self, $key ) = @_;
+    # This seems dodgy to me, but CHI::Driver::File does it.
+    length( $key ) == 32
+	and $key !~ m/ [^[:xdigit:]] /smx
+	or $key = Digest::MD5::md5_hex( $key );
+    return File::Spec->catfile( $self->{_cache_dir}, $key );
 }
 
 1;
@@ -270,30 +239,18 @@ non-existent key.
 
 =head2 get
 
- my $data = $cache->get( $key );
+ my $value = $cache->get( $key );
 
-This method returns the data associated with the given key. If there is
+This method returns the value associated with the given key. If there is
 none, or if it is expired, nothing is returned.
-
-=head2 get_extant
-
- my $data = $cache->get_extant( $key );
-
-This method returns the data associated with the given key. Unlike
-L<get()|/get>, this method returns expired data. If the key is not found
-in the cache, nothing is returned.
-
-=head2 get_extant_keys
-
- print "$_\n" for sort $cache->get_keys();
-
-This method returns all keys in the cache, whether or not expired.
 
 =head2 get_keys
 
  print "$_\n" for sort $cache->get_keys();
 
-This method returns all non-expired keys in the cache.
+This method returns all keys in the cache, including the keys of expired
+items. B<Note> that these will probably not be the original keys, for
+the cache entries but can still be used to retrieve them.
 
 =head2 purge
 
@@ -310,10 +267,10 @@ the key is not in the cache.
 
 =head2 set
 
- $cache->set( $key, $data );
+ $cache->set( $key, $value );
 
-This method adds the given data to the cache under the given key. If the
-key is already present in the cache, its data are replaced.
+This method adds the given value to the cache under the given key. If
+the key is already present in the cache, its value is replaced.
 
 =head1 SEE ALSO
 
