@@ -20,18 +20,18 @@ my $cache = Test::Pod::LinkCheck::Lite::Cache::File->new(
 # reference to a sorted array.
 sub digest { return [ sort( map { Digest::MD5::md5_hex( $_ ) } @_ ) ]; }
 
-is_deeply $cache->get_keys(), [], 'Initially empty';
+is_deeply my_get_keys( $cache ), [], 'Initially empty';
 
 $cache->set( fubar => 'snafu' );
-is_deeply $cache->get_keys(), digest( 'fubar' ), "set( 'fubar' )";
+is_deeply my_get_keys( $cache ), digest( 'fubar' ), "set( 'fubar' )";
 is $cache->get( 'fubar' ), 'snafu', "get( 'fubar' )";
 
 $cache->set( answer => 42 );
-is_deeply $cache->get_keys(), digest( qw{ answer fubar } ),
+is_deeply my_get_keys( $cache ), digest( qw{ answer fubar } ),
     "set( 'answer' )";
 
 $cache->remove( 'fubar' );
-is_deeply $cache->get_keys(), digest( 'answer' ), "remove( 'fubar' )";
+is_deeply my_get_keys( $cache ), digest( 'answer' ), "remove( 'fubar' )";
 
 $cache->expire( 'answer' );
 my $obj;
@@ -39,30 +39,25 @@ is $cache->get( 'answer', obj_ref => \$obj ), undef, "expire( 'answer' )";
 ok $obj, 'Expired entry still exists';
 $obj
     and ok $obj->is_expired(), 'Expired entry knows it is expired';
-is_deeply $cache->get_keys(), digest( 'answer' ),
+is_deeply my_get_keys( $cache ), digest( 'answer' ),
     "get_keys() still returns 'answer'";
 
 $cache->purge();
 $cache->get( 'answer', obj_ref => \$obj );
 ok ! $obj, 'purge()';
-is_deeply $cache->get_keys(), [], 'purge()';
+is_deeply my_get_keys( $cache ), [], 'purge()';
 
 $cache->set( Batman => 'Robin' );
 is $cache->get( 'Batman' ), 'Robin', "set( 'Batman' )";
 
 $cache->clear();
-is_deeply $cache->get_keys(), [], 'clear()';
+is_deeply my_get_keys( $cache ), [], 'clear()';
 
 done_testing;
 
-BEGIN {
-    my $get_keys = Test::Pod::LinkCheck::Lite::Cache::File->can(
-	'get_keys' );
-    no warnings qw{ redefine };
-    *Test::Pod::LinkCheck::Lite::Cache::File::get_keys = sub {
-	my ( $self ) = @_;
-	return [ sort $get_keys->( $self ) ];
-    };
+sub my_get_keys {
+    my ( $cache ) = @_;
+    return [ sort( $cache->get_keys() ) ];
 }
 
 1;

@@ -44,6 +44,16 @@ sub new {
 
 sub clear {
     my ( $self ) = @_;
+    # FIXME CHI::Driver::File renames the name space directory to a temp
+    # and then deletes it. I have the problem that the current
+    # implementation actually deletes the name space directory and then
+    # recreates it, which is a potential race. I have to do it this way
+    # because things like set() assume the name space directory exists,
+    # whereas CHI's set() creates it if necessary.
+    # FIXME actually there is another problem with this implementatoin:
+    # a potential race with another process that wants to add something
+    # to the namespace in the gap between the time it was deleted and
+    # the time it is recreated.
     File::Path::rmtree( $self->{_cache_dir} );
     # The -d test is pure paranoia on my part. rmtree() is documented as
     # removing the root of the tree.
@@ -54,10 +64,7 @@ sub clear {
 
 sub expire {
     my ( $self, $key ) = @_;
-    my $path = File::Spec->catfile(
-	$self->{_cache_dir},
-	Digest::MD5::md5_hex( $key ),
-    );
+    my $path = $self->_path_to_key( $key );
     $self->_is_valid( $path )
 	or return $self;
     my $utime = time - $self->{expires_in};
@@ -80,12 +87,21 @@ sub get {
 
 sub get_keys {
     my ( $self ) = @_;
-    return $self->_get_cache_key_hashes();
+    opendir my $dh, $self->{_cache_dir}
+	or Carp::croak( "Failed to open $self->{_cache_dir}: $!" );
+    my @keys;
+    while ( defined( my $key = readdir $dh ) ) {
+	$key =~ m/ [^[:xdigit:]] /smx
+	    and next;
+	push @keys, $key;
+    }
+    closedir $dh;
+    return @keys;
 }
 
 sub purge {
     my ( $self ) = @_;
-    foreach my $key_hash ( $self->_get_cache_key_hashes() ) {
+    foreach my $key_hash ( $self->get_keys() ) {
 	my $path = $self->_path_to_key( $key_hash );
 	$self->_is_valid( $path )
 	    and next;
@@ -111,6 +127,10 @@ sub remove {
 sub set {
     my ( $self, $key, $value ) = @_;
     my $path = $self->_path_to_key( $key );
+    # FIXME CHI::Driver::File writes to a temp file and then renames it,
+    # as being a "more atomic" way to do things. CHI::Driver::File uses
+    # Perl's rename() rather than Perl::Copy::move(), and I think I can
+    # here too.
     Storable::nstore( {
 	    key  => $key,
 	    value => $value,
@@ -118,20 +138,6 @@ sub set {
 	$path,
     );
     return $self;
-}
-
-sub _get_cache_key_hashes {
-    my ( $self ) = @_;
-    opendir my $dh, $self->{_cache_dir}
-	or Carp::croak( "Failed to open $self->{_cache_dir}: $!" );
-    my @keys;
-    while ( defined( my $file = readdir $dh ) ) {
-	$file =~ m/ [^[:xdigit:]] /smx
-	    and next;
-	push @keys, $file;
-    }
-    closedir $dh;
-    return @keys;
 }
 
 sub _get_cache_object {
@@ -158,6 +164,11 @@ sub _is_valid {
 sub _path_to_key {
     my ( $self, $key ) = @_;
     # This seems dodgy to me, but CHI::Driver::File does it.
+    # Actually, I guess it's OK for this application because the keys
+    # are absolute URLs, which must contain a colon. I think in general
+    # though I would have get_keys() return an object that stringifies
+    # to the hash, and use the object-versus-scalar distinction to
+    # decided whether to hashify the key.
     length( $key ) == 32
 	and $key !~ m/ [^[:xdigit:]] /smx
 	or $key = Digest::MD5::md5_hex( $key );
