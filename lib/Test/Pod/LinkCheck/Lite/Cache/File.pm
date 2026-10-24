@@ -54,6 +54,10 @@ sub clear {
     # a potential race with another process that wants to add something
     # to the namespace in the gap between the time it was deleted and
     # the time it is recreated.
+    # FIXME potential fix: Storable::nstore throws an exception if the
+    # store fails, leaving the error code in $!. The error is ENOENT if
+    # the directory is missing. Trap the exception, test for ENOENT, and
+    # create the directory.
     File::Path::rmtree( $self->{_cache_dir} );
     # The -d test is pure paranoia on my part. rmtree() is documented as
     # removing the root of the tree.
@@ -127,17 +131,30 @@ sub remove {
 sub set {
     my ( $self, $key, $value ) = @_;
     my $path = $self->_path_to_key( $key );
-    # FIXME CHI::Driver::File writes to a temp file and then renames it,
+    # CHI::Driver::File writes to a temp file and then renames it,
     # as being a "more atomic" way to do things. CHI::Driver::File uses
     # Perl's rename() rather than Perl::Copy::move(), and I think I can
-    # here too.
+    # here too. CHI::Driver::File uses non-core module Data::UUID to
+    # generate the name of the temp file, but given my file naming
+    # convention, suffixing '-temp' should work.
+    my $temp_path = "$path-temp";
     Storable::nstore( {
 	    key  => $key,
 	    value => $value,
 	},
-	$path,
+	$temp_path,
     );
-    return $self;
+
+    # CHI::Driver::File retries the rename, claiming a rare race
+    # condition under unspecified circumstances, so I will too.
+    for ( 1 .. 3 ) {
+	rename $temp_path, $path
+	    and return $self;
+    }
+
+    my $err = $!;
+    unlink $temp_path;
+    Carp::croak( "Unable to rename $temp_path to $path: $err" );
 }
 
 sub _get_cache_object {
