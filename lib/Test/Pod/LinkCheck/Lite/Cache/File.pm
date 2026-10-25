@@ -21,6 +21,7 @@ sub new {
     defined $arg{expires_in}
 	or $arg{expires_in} = 86_400;	# One day
     defined $arg{namespace}
+	and $arg{namespace} ne ''
 	or $arg{namespace} = 'Default';
     unless ( defined $arg{root_dir} ) {
 	( my $caller = caller ) =~ s/::/_/smxg;
@@ -82,7 +83,13 @@ sub expire {
 sub get {
     my ( $self, $key, %arg ) = @_;
     my $path = $self->_path_to_key( $key );
-    my $obj = $self->_get_cache_object( $path );
+    my $obj;
+    if ( my $stat = stat $path ) {
+	my $hash = Storable::retrieve( $path );
+	$hash->{created_at} = $stat->mtime();
+	$hash->{expires_at} = $hash->{created_at} + $self->{expires_in};
+	$obj = Test::Pod::LinkCheck::Lite::CacheObject->__new( $hash );
+    }
     $arg{obj_ref}
 	and ${$arg{obj_ref}} = $obj;
     $obj
@@ -157,17 +164,6 @@ sub set {
     my $err = $!;
     unlink $temp_path;
     Carp::croak( "Unable to rename $temp_path to $path: $err" );
-}
-
-sub _get_cache_object {
-    my ( $self, $path ) = @_;	# Invocant unused
-    if ( my $stat = stat $path ) {
-	my $hash = Storable::retrieve( $path );
-	$hash->{created_at} = $stat->mtime();
-	$hash->{expires_at} = $hash->{created_at} + $self->{expires_in};
-	return Test::Pod::LinkCheck::Lite::CacheObject->__new( $hash );
-    }
-    return undef;	## no critic (ProhibitExplicitReturnUndef)
 }
 
 sub _is_valid {
