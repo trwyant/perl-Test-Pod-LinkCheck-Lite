@@ -22,11 +22,13 @@ sub new {
 	or $arg{expires_in} = 86_400;	# One day
     defined $arg{namespace}
 	or $arg{namespace} = 'Default';
-    defined $arg{root_dir}
-	or $arg{root_dir} = do {
+    unless ( defined $arg{root_dir} ) {
 	( my $caller = caller ) =~ s/::/_/smxg;
-	$caller;
-    };
+	$arg{root_dir} = File::Spec->catdir(
+	    File::Spec->tmpdir(),
+	    $caller,
+	);
+    }
     my $self = { map { $_ => delete $arg{$_} } qw{ expires_in namespace
 	root_dir } };
     local $" = ', ';
