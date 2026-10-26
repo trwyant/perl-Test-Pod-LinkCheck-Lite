@@ -6,6 +6,7 @@ use strict;
 use warnings;
 
 use Digest::MD5 qw{ md5_hex };
+use File::Path qw{ rmtree };
 use File::Spec;
 use File::stat;
 use Getopt::Long 2.33 qw{ :config auto_version };
@@ -34,6 +35,12 @@ $code->( $t, @ARGV );
 sub cmd_clear {
     my ( $t ) = @_;
     $t->clear_url_cache();
+    return;
+}
+
+sub cmd_dump {
+    my ( $t ) = @_;
+    print Dump( $t->__url_cache_object() );
     return;
 }
 
@@ -76,6 +83,13 @@ sub cmd_list {
 	    and push @keys, $obj->key();
     }
     print "$_\n" for sort @keys;
+    return;
+}
+
+sub cmd_obliterate {
+    my ( $t ) = @_;
+    my $cache = $t->__url_cache_object();
+    rmtree( $cache->{root_dir} );
     return;
 }
 
@@ -134,6 +148,10 @@ sub-commands currently implemented are:
 
 This sub-command removes all entries from the cache.
 
+=item dump
+
+This sub-command dumps the cache object.
+
 =item expire E<lt>urlE<gt>
 
 This sub-command expires the entry for the given URL, if any.
@@ -153,6 +171,11 @@ L<YAML|YAML>.
 =item list
 
 This sub-command lists all URLs in the cache, whether or not expired.
+
+=item obliterate
+
+This sub-command removes the root directory of the cache.
+I<Caveat user.>
 
 =item path
 
