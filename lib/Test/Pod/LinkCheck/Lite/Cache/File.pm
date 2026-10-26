@@ -60,7 +60,11 @@ sub clear {
     # FIXME potential fix: Storable::nstore throws an exception if the
     # store fails, leaving the error code in $!. The error is ENOENT if
     # the directory is missing. Trap the exception, test for ENOENT, and
-    # create the directory.
+    # create the directory. Or maybe do like CHI does and use freeze()
+    # and thaw() and my own logic, stolen from Storable. I note that CHI
+    # does not use flock(). Storable does if you ask for it, but croaks
+    # if it is not available. The trick is discovering whether flock()
+    # is actually available.
     File::Path::rmtree( $self->{_cache_dir} );
     # The -d test is pure paranoia on my part. rmtree() is documented as
     # removing the root of the tree.
@@ -84,8 +88,9 @@ sub get {
     my ( $self, $key, %arg ) = @_;
     my $path = $self->_path_to_key( $key );
     my $obj;
-    if ( my $stat = stat $path ) {
-	my $hash = Storable::retrieve( $path );
+    if ( my $stat = stat $path
+	    and my $hash = $self->_get( $path )
+    ) {
 	$hash->{created_at} = $stat->mtime();
 	$hash->{expires_at} = $hash->{created_at} + $self->{expires_in};
 	$obj = Test::Pod::LinkCheck::Lite::CacheObject->__new( $hash );
@@ -122,7 +127,12 @@ sub purge {
 	    and next;
 	$! == ENOENT
 	    and next;
-	my $hash = Storable::retrieve( $path );
+	my $hash;
+	{
+	    local $! = 0;
+	    $hash = $self->_get( $path )
+		or Carp::croak( "Failed to retrieve $path: $!" );
+	}
 	Carp::carp( "Failed to purge $hash->{key}: $!" );
     }
     return $self;
@@ -147,12 +157,17 @@ sub set {
     # generate the name of the temp file, but given my file naming
     # convention, suffixing '-temp' should work.
     my $temp_path = "$path-temp";
-    Storable::nstore( {
-	    key  => $key,
-	    value => $value,
-	},
-	$temp_path,
-    );
+    {
+	open my $fh, '>', $temp_path
+	    or Carp::croak( "Unable to open $temp_path: $!" );
+	Storable::store_fd( {
+		key  => $key,
+		value => $value,
+	    },
+	    $fh,
+	);
+	close $fh;
+    }
 
     # CHI::Driver::File retries the rename, claiming a rare race
     # condition under unspecified circumstances, so I will too.
@@ -164,6 +179,13 @@ sub set {
     my $err = $!;
     unlink $temp_path;
     Carp::croak( "Unable to rename $temp_path to $path: $err" );
+}
+
+sub _get {
+    my ( undef, $path ) = @_;	# Invocant unused
+    open my $fh, '<', $path	## no critic (RequireBriefOpen)
+	or Carp::croak( "Failed to open $path: $!" );
+    return Storable::fd_retrieve( $fh );
 }
 
 sub _is_valid {
