@@ -36,13 +36,10 @@ sub new {
     my @extra;
     @extra = sort keys %arg
 	and Carp::croak( "Unsupported arguments @extra" );
-    my $path = File::Spec->catdir(
+    $self->{_cache_dir} = File::Spec->catdir(
 	map { $self->{$_} } qw{ root_dir namespace } );
-    $self->{_cache_dir} = $path;
-    -d $path
-	or File::Path::mkpath( $path )
-	or Carp::croak( "Unable to create $path: $!" );
-    return bless $self, $class;
+    bless $self, $class;
+    return $self;
 }
 
 sub clear {
@@ -53,23 +50,7 @@ sub clear {
     # recreates it, which is a potential race. I have to do it this way
     # because things like set() assume the name space directory exists,
     # whereas CHI's set() creates it if necessary.
-    # FIXME actually there is another problem with this implementatoin:
-    # a potential race with another process that wants to add something
-    # to the namespace in the gap between the time it was deleted and
-    # the time it is recreated.
-    # FIXME potential fix: Storable::nstore throws an exception if the
-    # store fails, leaving the error code in $!. The error is ENOENT if
-    # the directory is missing. Trap the exception, test for ENOENT, and
-    # create the directory. Or maybe do like CHI does and use freeze()
-    # and thaw() and my own logic, stolen from Storable. I note that CHI
-    # does not use flock(). Storable does if you ask for it, but croaks
-    # if it is not available. The trick is discovering whether flock()
-    # is actually available.
     File::Path::rmtree( $self->{_cache_dir} );
-    # The -d test is pure paranoia on my part. rmtree() is documented as
-    # removing the root of the tree.
-    -d $self->{_cache_dir}
-	or File::Path::mkpath( $self->{_cache_dir} );
     return $self;
 }
 
@@ -105,16 +86,20 @@ sub get {
 
 sub get_keys {
     my ( $self ) = @_;
-    opendir my $dh, $self->{_cache_dir}
-	or Carp::croak( "Failed to open $self->{_cache_dir}: $!" );
     my @keys;
-    while ( defined( my $key = readdir $dh ) ) {
-	$key =~ m/ [^[:xdigit:]] /smx
-	    and next;
-	push @keys, $key;
+    if ( opendir my $dh, $self->{_cache_dir} ) {
+	while ( defined( my $key = readdir $dh ) ) {
+	    $key =~ m/ [^[:xdigit:]] /smx
+		and next;
+	    push @keys, $key;
+	}
+	closedir $dh;
+	return @keys;
+    } elsif ( $! == ENOENT ) {
+	return @keys;
+    } else {
+	Carp::croak( "Failed to open $self->{_cache_dir}: $!" );
     }
-    closedir $dh;
-    return @keys;
 }
 
 sub purge {
@@ -157,17 +142,12 @@ sub set {
     # generate the name of the temp file, but given my file naming
     # convention, suffixing '-temp' should work.
     my $temp_path = "$path-temp";
-    {
-	open my $fh, '>', $temp_path
-	    or Carp::croak( "Unable to open $temp_path: $!" );
-	Storable::store_fd( {
-		key  => $key,
-		value => $value,
-	    },
-	    $fh,
-	);
-	close $fh;
-    }
+    Storable::store_fd( {
+	    key  => $key,
+	    value => $value,
+	},
+	$self->_open_for_output( $temp_path ),
+    );
 
     # CHI::Driver::File retries the rename, claiming a rare race
     # condition under unspecified circumstances, so I will too.
@@ -183,9 +163,12 @@ sub set {
 
 sub _get {
     my ( undef, $path ) = @_;	# Invocant unused
-    open my $fh, '<', $path	## no critic (RequireBriefOpen)
-	or Carp::croak( "Failed to open $path: $!" );
-    return Storable::fd_retrieve( $fh );
+    my $fh;
+    open $fh, '<', $path	## no critic (RequireBriefOpen,RequireCheckedOpen)
+	and return Storable::fd_retrieve( $fh );
+    $! == ENOENT
+	and return undef;	## no critic (ProhibitExplicitReturnUndef)
+    Carp::croak( "Failed to open $path: $!" );
 }
 
 sub _is_valid {
@@ -196,6 +179,34 @@ sub _is_valid {
     $stat->mtime() + $self->{expires_in} > time
 	and return 1;
     return;
+}
+
+sub _make_cache_dir {
+    my ( $self ) = @_;
+    -d $self->{_cache_dir}
+	and return;
+    # The documentation is unclear on how mkpath() handles an error. My
+    # read of the code says that it throws an exception given the way we
+    # are calling it.
+    File::Path::mkpath( $self->{_cache_dir} );
+    # But I'm being paranoid.
+    my $err = $!;
+    -d $self->{_cache_dir}
+	and return;
+    Carp::croak( "Unable to create $self->{_cache_dir}: $err" );
+}
+
+sub _open_for_output {
+    my ( $self, $path ) = @_;
+    my $fh;
+    open $fh, '>', $path	## no critic (RequireBriefOpen,RequireCheckedOpen)
+	and return $fh;
+    if ( $! == ENOENT ) {
+	$self->_make_cache_dir();
+	open $fh, '>', $path	## no critic (RequireBriefOpen,RequireCheckedOpen)
+	    and return $fh;
+    }
+    Carp::croak( "Unable to open $path: $!" );
 }
 
 sub _path_to_key {

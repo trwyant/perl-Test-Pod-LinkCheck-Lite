@@ -52,6 +52,7 @@ is $cache->get( 'Batman' ), 'Robin', "set( 'Batman' )";
 
 $cache->clear();
 is_deeply my_get_keys( $cache ), [], 'clear()';
+is $cache->get( 'Batman' ), undef, "No more 'Batman'";
 
 done_testing;
 
