@@ -23,6 +23,8 @@ sub new {
     defined $arg{namespace}
 	and $arg{namespace} ne ''
 	or $arg{namespace} = 'Default';
+    $arg{namespace} =~ m/ \A [[:alpha:]0-9] /smx
+	or Carp::croak( "'namespace' must begin with an alphanumeric" );
     unless ( defined $arg{root_dir} ) {
 	( my $caller = caller ) =~ s/::/_/smxg;
 	$arg{root_dir} = File::Spec->catdir(
@@ -50,7 +52,21 @@ sub clear {
     # recreates it, which is a potential race. I have to do it this way
     # because things like set() assume the name space directory exists,
     # whereas CHI's set() creates it if necessary.
-    File::Path::rmtree( $self->{_cache_dir} );
+
+    # CHI::Driver::File renames the directory first and then deletes it,
+    # as being 'more atomic'.
+    my $temp_dir = File::Spec->catdir(
+	$self->{root_dir},
+	"_temp_$self->{namespace}",
+    );
+    if ( rename $self->{_cache_dir}, $temp_dir ) {
+	File::Path::rmtree( $temp_dir );
+    } elsif ( $! == ENOENT ) {
+	# No name space found -- we're good.
+    } else {
+	Carp::croak(
+	    "Failed to rename $self->{_cache_dir} to $temp_dir: $!" );
+    }
     return $self;
 }
 
@@ -269,8 +285,9 @@ not support per-entry expiration times.
 =item namespace
 
 This argument specifies a name space in which this object's entries
-reside, Unlike L<CHI|CHI>, this must be a valid file name element. The
-default is C<'Default'>, oddly enough.
+reside, Unlike L<CHI|CHI>, this must be a valid file name element, and
+must begin with an alphanumeric. The default is C<'Default'>, oddly
+enough.
 
 =item root_dir
 
