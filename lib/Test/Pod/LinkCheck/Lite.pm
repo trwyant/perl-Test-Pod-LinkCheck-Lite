@@ -433,7 +433,7 @@ sub check_url {
 
 sub clear_url_cache {
     my ( $self ) = @_;
-    my $cache = $self->__url_cache_object()
+    my $cache = $self->_cache_object()
 	or return;
     $cache->clear();
     return;
@@ -575,7 +575,7 @@ sub prohibit_redirect {
 
 sub purge_url_cache {
     my ( $self ) = @_;
-    my $cache = $self->__url_cache_object()
+    my $cache = $self->_cache_object()
 	or return;
     $cache->purge();
     return;
@@ -931,12 +931,18 @@ sub _get_module_index_cpan {
     return;
 }
 
+sub _cache_object {
+    my ( $self ) = @_;
+    $self->{_url_cache} ||= $self->_initialize_url_cache();
+    return $self->{_url_cache}{cache};
+}
+
 sub _get_module_index_cpan_meta_db {
     my ( $self ) = @_;
 
     return [
 	sub {
-	    my $resp = $self->__url_cache_head(
+	    my $resp = $self->_head(
 		"https://cpanmetadb.plackperl.org/v1.0/package/$_[0]" );
 	    return $resp->{success};
 	},
@@ -944,24 +950,13 @@ sub _get_module_index_cpan_meta_db {
     ];
 }
 
-# Package-private. For the use of tools/ scripts.
-sub __url_cache_head {
+sub _head {
     my ( $self, $url ) = @_;
     $self->{_url_cache} ||= $self->_initialize_url_cache();
     return $self->{_url_cache}{head}->( $url );
 }
 
 # Package-private. Exists so that it can be overridden for testing.
-sub __url_cache_namespace { return 'Default' }
-
-# Package-private. For the use of tools/ scripts.
-sub __url_cache_object {
-    my ( $self ) = @_;
-    $self->{_url_cache} ||= $self->_initialize_url_cache();
-    return $self->{_url_cache}{cache};
-}
-
-# Package-private. For the use of tools/ scripts.
 sub __url_cache_path {
     ( my $dir = __PACKAGE__ ) =~ s/::/_/smxg;
     return File::Spec->catdir( File::Spec->tmpdir(), $dir );
@@ -974,7 +969,6 @@ sub _initialize_url_cache {
     if ( $self->cache_url_response() ) {
 	my $expires_in = 86_400;	# One day
 	$cache = Test::Pod::LinkCheck::Lite::Cache::File->new(
-	    namespace	=> __url_cache_namespace(),
 	    root_dir	=> __url_cache_path(),
 	    expires_in	=> $expires_in,
 	);
@@ -1021,7 +1015,7 @@ sub _handle_url {
     $self->__ignore_url( $url )
 	and return $self->_skip( $link, 'not checked; explicitly ignored' );
 
-    my $resp = $self->__url_cache_head( $url );
+    my $resp = $self->_head( $url );
 
     if ( $resp->{success} ) {
 

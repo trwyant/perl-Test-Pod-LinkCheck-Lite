@@ -15,7 +15,7 @@ use Pod::Usage;
 use Test::Pod::LinkCheck::Lite::Cache::File;
 use YAML;			# Not core
 
-our $VERSION = '0.014_002';
+our $VERSION = '0.014_004';
 
 my %opt;
 

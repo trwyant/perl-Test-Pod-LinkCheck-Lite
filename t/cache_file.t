@@ -16,8 +16,6 @@ my $cache = Test::Pod::LinkCheck::Lite::Cache::File->new(
     root_dir	=> $tempdir,
 );
 
-# NOTE that at the bottom of this we redefine get_keys() to return a
-# reference to a sorted array.
 sub digest { return [ sort( map { Digest::MD5::md5_hex( $_ ) } @_ ) ]; }
 
 is_deeply my_get_keys( $cache ), [], 'Initially empty';

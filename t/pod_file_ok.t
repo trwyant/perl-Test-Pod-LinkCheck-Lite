@@ -5,6 +5,7 @@ use 5.008;
 use strict;
 use warnings;
 
+use File::Temp qw{ tempdir };
 use IPC::Cmd qw{ run };
 use Test::More 0.88;	# Because of done_testing();
 
@@ -52,22 +53,16 @@ BEGIN {
     require Test::Pod::LinkCheck::Lite;
     Test::Pod::LinkCheck::Lite->import( qw{ :const } );
 
-    # TODO this would be much less hacky in Test2
-
+    my $tempdir = tempdir( CLEANUP => 1 );
     no warnings qw{ redefine };
-    *Test::Pod::LinkCheck::Lite::__url_cache_namespace = sub {
-	return 'Test' };
-    my $new = Test::Pod::LinkCheck::Lite->can( 'new' );
-    *Test::Pod::LinkCheck::Lite::new = sub {
-	my $self = $new->( @_ );
-	$self->clear_url_cache();
-	return $self;
+    *Test::Pod::LinkCheck::Lite::__url_cache_path = sub {
+	return $tempdir;
     };
 }
 
 my $have_https;
 {
-    my $t = Test::Pod::LinkCheck::Lite->new();
+    my $t = my_new();
 
     $have_https = $t->can_ssl();
 
@@ -132,7 +127,7 @@ EOD
 {
     local $ENV{HOME} = 't/data';
 
-    my $t = Test::Pod::LinkCheck::Lite->new();
+    my $t = my_new();
 
     my @rslt;
 
@@ -240,7 +235,7 @@ EOD
 }
 
 {
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	man	=> CAN_MAN_MAN,
     );
 
@@ -251,7 +246,7 @@ EOD
 }
 
 {
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	check_external_sections	=> 0,
     );
 
@@ -262,7 +257,7 @@ EOD
 }
 
 {
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	require_installed	=> 1,
     );
 
@@ -291,7 +286,7 @@ foreach (
     [ 1, 1 ],
 ) {
     my ( $check_url, $cache_url_response ) = @$_;
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	check_url	=> $check_url,
 	cache_url_response	=> $cache_url_response,
     );
@@ -314,7 +309,7 @@ EOD
 }
 
 foreach my $skip_server_errors ( 0, 1 ) {
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	skip_server_errors	=> $skip_server_errors,
     );
 
@@ -343,7 +338,7 @@ foreach (
     [ 'Chained custom sub' => sub { return ALLOW_REDIRECT_TO_INDEX } ],
     ) {
     my ( $name, $prohibit_redirect ) = @{ $_ };
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	prohibit_redirect	=> $prohibit_redirect,
     );
 
@@ -381,7 +376,7 @@ foreach (
 }
 
 if ( -d ( $ENV{GIT_DIR} || '.git' ) ) {
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	ignore_url	=> MAYBE_IGNORE_GITHUB,
     );
 
@@ -406,7 +401,7 @@ The following should succeed because we have forced Git to look at a
 non-existent repository, and MAYBE_IGNORE_GITHUB has been specified.
 EOD
     local $ENV{GIT_DIR} = 't/data/.git';
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	ignore_url	=> MAYBE_IGNORE_GITHUB,
     );
 
@@ -451,7 +446,7 @@ note '';
 	    }
 	],
     ) {
-	my $t = Test::Pod::LinkCheck::Lite->new(
+	my $t = my_new(
 	    ignore_url	=> $ignore->[0],
 	);
 
@@ -463,7 +458,7 @@ note '';
 }
 
 {
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	ignore_url	=> qr< \Q//metacpan.org/\E >smx,
     );
 
@@ -472,11 +467,11 @@ note '';
 	'Test of t/data/pod_ok/url_links.pod returned proper data when ignoring URL';
 }
 
-foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
+foreach my $mi ( my_new()->module_index() ) {
 
     local $ENV{HOME} = 't/data';
 
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	module_index	=> $mi,
     );
 
@@ -486,7 +481,7 @@ foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
 }
 
 {
-    my $t = Test::Pod::LinkCheck::Lite->new(
+    my $t = my_new(
 	add_dir	=> 't/data/script',
     );
 
@@ -495,7 +490,7 @@ foreach my $mi ( Test::Pod::LinkCheck::Lite->new()->module_index() ) {
 }
 
 {
-    my $t = Test::Pod::LinkCheck::Lite->new();
+    my $t = my_new();
 
     note 'Link to unusual place fails unless we are told where it is';
 
@@ -513,6 +508,12 @@ done_testing;
 sub Boolean {
     my ( $arg ) = @_;
     return $arg ? 'true' : 'false';
+}
+
+sub my_new {
+    my $t = Test::Pod::LinkCheck::Lite->new( @_ );
+    $t->clear_url_cache();
+    return $t;
 }
 
 1;
