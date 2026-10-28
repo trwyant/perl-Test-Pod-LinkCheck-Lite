@@ -7,12 +7,13 @@ use warnings;
 
 use Digest::MD5 qw{ md5_hex };
 use File::Path qw{ rmtree };
-use File::Spec;
-use File::stat;
+use File::Spec;			# Core since 5.4.5
+use File::stat;			# Core since 5.4
+use HTTP::Tiny;			# Core since 5.13.9
 use Getopt::Long 2.33 qw{ :config auto_version };
 use Pod::Usage;
-use Test::Pod::LinkCheck::Lite;
-use YAML;
+use Test::Pod::LinkCheck::Lite::Cache::File;
+use YAML;			# Not core
 
 our $VERSION = '0.014_002';
 
@@ -25,56 +26,62 @@ GetOptions( \%opt,
 my $code = __PACKAGE__->can( "cmd_$ARGV[0]" )
     or die "Unknown command '$ARGV[0]'";
 
-my $t = Test::Pod::LinkCheck::Lite->new(
-    check_url	=> 1,
-    cache_url_response	=> 1,
-);
+my $cache;
+{
+    package Test::Pod::LinkCheck::Lite;
+    $cache = Test::Pod::LinkCheck::Lite::Cache::File->new();
+}
 
-$code->( $t, @ARGV );
+$code->( $cache, @ARGV );
 
 sub cmd_clear {
-    my ( $t ) = @_;
-    $t->clear_url_cache();
+    my ( $cache ) = @_;
+    $cache->clear();
     return;
 }
 
 sub cmd_dump {
-    my ( $t ) = @_;
-    print Dump( $t->__url_cache_object() );
+    my ( $cache ) = @_;
+    print Dump( $cache );
     return;
 }
 
 sub cmd_expire {
-    my ( $t, undef, $url ) = @_;
-    my $cache = $t->__url_cache_object();
-    $cache->expire( $url );
+    my ( $cache, undef, $key ) = @_;
+    $cache->expire( $key );
     return;
 }
 
 sub cmd_get {
-    my ( $t, undef, $url ) = @_;
-    my $cache = $t->__url_cache_object();
+    my ( $cache, undef, $key ) = @_;
     my $obj;
-    if ( my $value = $cache->get( $url, obj_ref => \$obj ) ) {
-	print "$url ", Dump( $value );
+    if ( my $value = $cache->get( $key, obj_ref => \$obj ) ) {
+	print "$key ", Dump( $value );
     } elsif ( $obj ) {
-	print "$url is expired\n";
+	print "$key is expired\n";
     } else {
-	print "$url is not in the cache\n";
+	print "$key is not in the cache\n";
     }
     return;
 }
 
-sub cmd_head {
-    my ( $t, undef, $url ) = @_;
-    my $resp = $t->__url_cache_head( $url );
-    print Dump( $resp );
-    return;
+{
+    my $ua;
+    sub cmd_head {
+	my ( $cache, undef, $url ) = @_;
+	my $resp;
+	unless ( $resp = $cache->get( $url ) ) {
+	    $ua ||= HTTP::Tiny->new();
+	    $resp = $ua->head( $url );
+	    $cache->set( $url, $resp );
+	}
+	print Dump( $resp );
+	return;
+    }
 }
 
 sub cmd_list {
-    my ( $t ) = @_;
-    my $cache = $t->__url_cache_object();
+    my ( $cache ) = @_;
     my @keys;
     foreach ( $cache->get_keys() ) {
 	my $obj;
@@ -87,28 +94,26 @@ sub cmd_list {
 }
 
 sub cmd_obliterate {
-    my ( $t ) = @_;
-    my $cache = $t->__url_cache_object();
+    my ( $cache ) = @_;
     rmtree( $cache->{root_dir} );
     return;
 }
 
 sub cmd_path {
-    my ( $t ) = @_;
-    print $t->__url_cache_path(), "\n";
+    my ( $cache ) = @_;
+    print $cache->{root_dir}, "\n";
     return;
 }
 
 sub cmd_purge {
-    my ( $t ) = @_;
-    $t->purge_url_cache();
+    my ( $cache ) = @_;
+    $cache->purge();
     return;
 }
 
 sub cmd_remove {
-    my ( $t, undef, $url ) = @_;
-    my $cache = $t->__url_cache_object();
-    $cache->remove( $url );
+    my ( $cache, undef, $key ) = @_;
+    $cache->remove( $key );
     return;
 }
 
