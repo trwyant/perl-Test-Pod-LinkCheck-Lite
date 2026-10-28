@@ -14,7 +14,7 @@ use File::stat;			# Core since 5.4
 use Storable ();		# Core since 5.7.3
 use Test::Pod::LinkCheck::Lite::CacheObject;
 
-our $VERSION = '0.014_003';
+our $VERSION = '0.014_004';
 
 sub new {
     my ( $class, %arg ) = @_;

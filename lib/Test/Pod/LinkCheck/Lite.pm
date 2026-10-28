@@ -23,7 +23,7 @@ use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
 use Test::Pod::LinkCheck::Lite::Cache::File;
 
-our $VERSION = '0.014_003';
+our $VERSION = '0.014_004';
 
 our @ISA = qw{ Exporter };
 

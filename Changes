@@ -1,3 +1,27 @@
+0.014_004	2026-10-28	T. R. Wyant
+    Redo tools/url_cache to just use the cache object.
+
+    Rename cache namespaces before clearing to minimize potential race.
+
+    Only create cache directories when actually needed.
+
+    Use Storable::store_fd() and fd_retrieve() for cache because these
+    let us do our own handling of open() errors.
+
+    Add tools/url_cache sub-commands dump and obliterate.
+
+    Refactor cache get() method to eliminate private method.
+
+    Correct cache default root_dir.
+
+    Have ::Cache::File::set() write to temp file and then rename.
+
+    Clean up code from cache interface redo.
+
+    Add ::CacheObject.
+    
+    Converge get() and get_keys() to CHI behaviour.
+
 0.014_003	2026-10-21	T. R. Wyant
     Test POD in eg/ and tools/.
 
