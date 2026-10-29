@@ -9,6 +9,9 @@ test-pod-links
     This script executes a test on the specified file, directory, or POD
     fragment. If no argument is given, it tests blib/.
 
+url-cache
+    Poke around in the URL cache.
+
 See also xt/author/pod_links.t in this distribution.
 
 # ex: set filetype=text textwidth=72 autoindent :

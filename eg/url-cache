@@ -121,13 +121,13 @@ __END__
 
 =head1 TITLE
 
-url_cache - Manipulate the persistent URL cache.
+url-cache - Manipulate the persistent URL cache.
 
 =head1 SYNOPSIS
 
- url_cache list
- url_cache --help
- url_cache --version
+ url-cache list
+ url-cache --help
+ url-cache --version
 
 =head1 OPTIONS
 
