@@ -21,15 +21,6 @@ use constant RANDOM_CMD =>
 use constant CAN_MAN_MAN => run( COMMAND => [ qw{ man -w 1 man } ] ) || 0;
 
 
-# This mess is because if Devel::Hide or Test::Without::Module is
-# specified on the command line or in an enclosing file, a straight
-# 'use lib qw{ inc/Mock }' would trump it, and the mocked modules would
-# still be loaded. With this mess, the command-line version is
-# $ perl -Mlib=inc/Mock -MDevel::Hide=HTTP::Tiny ...,
-# and the 'use if' sees inc/Mock already in @INC and does not add it
-# again.  'use if' is core as of 5.6.2, so I should be OK unless I run
-# into some Linux packager who knows better than the Perl Porters what
-# should be in core (and yes, they exist).
 
 use constant CODE_REF	=> ref sub {};
 use constant NON_REF	=> ref 0;
@@ -37,6 +28,15 @@ use constant REGEXP_REF	=> ref qr{};
 
 # The BEGIN block is for the sake of the import().
 BEGIN {
+    # This mess is because if Devel::Hide or Test::Without::Module is
+    # specified on the command line or in an enclosing file, a straight
+    # 'use lib qw{ inc/Mock }' would trump it, and the mocked modules
+    # would still be loaded. With this mess, the command-line version is
+    # $ perl -Mlib=inc/Mock -MDevel::Hide=HTTP::Tiny ..., and the 'use
+    # if' sees inc/Mock already in @INC and does not add it again.  'use
+    # if' is core as of 5.6.2, so I should be OK unless I run into some
+    # Linux packager who knows better than the Perl Porters what should
+    # be in core (and yes, they exist).
     my $inx = 0;
     OUTER_LOOP: {
 	while ( $inx < @INC ) {
@@ -47,14 +47,16 @@ BEGIN {
     }
     splice @INC, $inx, 0, 'inc/Mock', 't/data/_lib';
 
-    no warnings qw{ once };
-
-    local $Test::Pod::LinkCheck::Lite::DIRECTORY_LEADER = '_';
     require Test::Pod::LinkCheck::Lite;
     Test::Pod::LinkCheck::Lite->import( qw{ :const } );
+}
 
+{
     my $tempdir = tempdir( CLEANUP => 1 );
     no warnings qw{ redefine };
+    *Test::Pod::LinkCheck::Lite::__dot_cpan = sub {
+	return '_cpan';
+    };
     *Test::Pod::LinkCheck::Lite::__url_cache_path = sub {
 	return $tempdir;
     };

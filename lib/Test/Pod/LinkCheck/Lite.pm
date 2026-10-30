@@ -38,12 +38,7 @@ our %EXPORT_TAGS = (
 
 use constant ON_DARWIN		=> 'darwin' eq $^O;
 use constant ON_VMS		=> 'VMS' eq $^O;
-
-our $DIRECTORY_LEADER;	# FOR TESTING ONLY -- may be retracted without notice
-defined $DIRECTORY_LEADER
-    or $DIRECTORY_LEADER = ON_VMS ? '_' : '.';
-
-my $DOT_CPAN		= "${DIRECTORY_LEADER}cpan";
+use constant _DOT_CPAN	=> $^O eq 'VMS' ? '_cpan' : '.cpan';
 
 use constant ARRAY_REF	=> ref [];
 use constant CODE_REF	=> ref sub {};
@@ -471,6 +466,11 @@ EOD
 sub _Boolean {
     my ( $value ) = @_;
     return $value ? 'true' : 'false';
+}
+
+# Exposed for testing
+sub __dot_cpan {
+    return _DOT_CPAN;
 }
 
 sub ignore_url {
@@ -915,7 +915,7 @@ sub _get_module_index_cpan {
     foreach my $dir ( @dir_list ) {
 	defined $dir
 	    or next;
-	my $path = File::Spec->catfile( $dir, $DOT_CPAN, 'Metadata' );
+	my $path = File::Spec->catfile( $dir, __dot_cpan(), 'Metadata' );
 	my $stat = stat $path
 	    or next;
 	my $rev = $stat->mtime();
