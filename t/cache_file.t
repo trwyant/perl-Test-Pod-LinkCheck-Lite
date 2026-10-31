@@ -13,6 +13,7 @@ use Test::Pod::LinkCheck::Lite::Cache::File;
 
 my $tempdir = tempdir( CLEANUP => 1 );
 my $cache = Test::Pod::LinkCheck::Lite::Cache::File->new(
+    namespace	=> 'Test',
     root_dir	=> $tempdir,
 );
 

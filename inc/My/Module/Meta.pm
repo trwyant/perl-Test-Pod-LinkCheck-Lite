@@ -170,6 +170,7 @@ sub requires {
 	'Storable'	=> 0,
 	'Test::Builder'	=> 0,
 	constant	=> 0,
+	parent		=> 0,
 	strict		=> 0,
 	utf8		=> 0,
 	warnings	=> 0,

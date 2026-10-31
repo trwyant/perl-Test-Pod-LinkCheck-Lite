@@ -5,6 +5,8 @@ use 5.008;
 use strict;
 use warnings;
 
+use parent qw{ Test::Pod::LinkCheck::Lite::Cache };	# Core since 5.10.1
+
 use Carp ();			# Core since 5.0
 use Digest::MD5 ();		# Core since 5.7.3
 use Errno qw{ ENOENT };	# Core since 5.5
@@ -16,32 +18,33 @@ use Test::Pod::LinkCheck::Lite::CacheObject;
 
 our $VERSION = '0.014_004';
 
-sub new {
-    my ( $class, %arg ) = @_;
-    defined $arg{expires_in}
-	or $arg{expires_in} = 86_400;	# One day
-    defined $arg{namespace}
-	and $arg{namespace} ne ''
-	or $arg{namespace} = 'Default';
-    $arg{namespace} =~ m/ \A [[:alpha:]0-9] /smx
-	or Carp::croak( "'namespace' must begin with an alphanumeric" );
-    unless ( defined $arg{root_dir} ) {
-	( my $caller = caller ) =~ s/::/_/smxg;
-	$arg{root_dir} = File::Spec->catdir(
-	    File::Spec->tmpdir(),
-	    $caller,
-	);
+{
+    my %attribute = (
+	root_dir	=> {
+	    default	=> sub {
+		my ( $self ) = @_;
+		( my $caller = $self->{_caller} ) =~ s/::/_/smxg;
+		return File::Spec->catdir(
+		    File::Spec->tmpdir(),
+		    $caller,
+		);
+	    },
+	    validate	=> sub {
+		my ( $self, undef, $value ) = @_;
+		$self->{_cache_dir} = File::Spec->catdir(
+		    $value, $self->{namespace},
+		);
+		return;
+	    },
+	},
+    );
+
+    sub __init {
+	my ( $self, $arg ) = @_;
+	$self->SUPER::__init( $arg );
+	$self->SUPER::__init( $arg, \%attribute );
+	return;
     }
-    my $self = { map { $_ => delete $arg{$_} } qw{ expires_in namespace
-	root_dir } };
-    local $" = ', ';
-    my @extra;
-    @extra = sort keys %arg
-	and Carp::croak( "Unsupported arguments @extra" );
-    $self->{_cache_dir} = File::Spec->catdir(
-	map { $self->{$_} } qw{ root_dir namespace } );
-    bless $self, $class;
-    return $self;
 }
 
 sub clear {
@@ -81,23 +84,22 @@ sub expire {
     Carp::croak( "Failed to expire $key: $!" );
 }
 
-sub get {
-    my ( $self, $key, %arg ) = @_;
+sub __get {
+    my ( $self, $key ) = @_;
     my $path = $self->_path_to_key( $key );
-    my $obj;
-    if ( my $stat = stat $path
-	    and my $hash = $self->_get( $path )
+    if (
+	my $stat = stat $path
+	    and
+	open my $fh, '<', $path	## no critic (RequireBriefOpen,RequireCheckedOpen)
     ) {
+	my $hash = Storable::fd_retrieve( $fh );
 	$hash->{created_at} = $stat->mtime();
 	$hash->{expires_at} = $hash->{created_at} + $self->{expires_in};
-	$obj = Test::Pod::LinkCheck::Lite::CacheObject->__new( $hash );
+	return Test::Pod::LinkCheck::Lite::CacheObject->__new( $hash );
     }
-    $arg{obj_ref}
-	and ${$arg{obj_ref}} = $obj;
-    $obj
-	and not $obj->is_expired()
-	and return $obj->value();
-    return undef;	## no critic (ProhibitExplicitReturnUndef)
+    $! == ENOENT
+	and return undef;	## no critic (ProhibitExplicitReturnUndef)
+    Carp::croak( "Failed to open $path: $!" );
 }
 
 sub get_keys {
@@ -118,39 +120,22 @@ sub get_keys {
     }
 }
 
-sub purge {
-    my ( $self ) = @_;
-    foreach my $key_hash ( $self->get_keys() ) {
-	my $path = $self->_path_to_key( $key_hash );
-	$self->_is_valid( $path )
-	    and next;
-	unlink $path
-	    and next;
-	$! == ENOENT
-	    and next;
-	my $hash;
-	{
-	    local $! = 0;
-	    $hash = $self->_get( $path )
-		or Carp::croak( "Failed to retrieve $path: $!" );
-	}
-	Carp::carp( "Failed to purge $hash->{key}: $!" );
-    }
-    return $self;
-}
-
 sub remove {
     my ( $self, $key ) = @_;
     my $path = $self->_path_to_key( $key );
-    unless ( unlink $path or $! == ENOENT ) {
-	Carp::croak( "Failed to remove $key: $!" );
-    }
-    return $self;
+    unlink $path
+	and return $self;
+    $! == ENOENT
+	and return $self;
+    my $err = $!;
+    my $obj = $self->__get( $key )
+	or Carp::croak( "Failed to retrieve $path: $!" );
+    Carp::croak( "Failed to remove @{[ $obj->key() ]}: $err" );
 }
 
-sub set {
-    my ( $self, $key, $value ) = @_;
-    my $path = $self->_path_to_key( $key );
+sub __set {
+    my ( $self, $hash ) = @_;
+    my $path = $self->_path_to_key( $hash->{key} );
     # CHI::Driver::File writes to a temp file and then renames it,
     # as being a "more atomic" way to do things. CHI::Driver::File uses
     # Perl's rename() rather than Perl::Copy::move(), and I think I can
@@ -158,10 +143,8 @@ sub set {
     # generate the name of the temp file, but given my file naming
     # convention, suffixing '-temp' should work.
     my $temp_path = "$path-temp";
-    Storable::store_fd( {
-	    key  => $key,
-	    value => $value,
-	},
+    Storable::store_fd(
+	$hash,
 	$self->_open_for_output( $temp_path ),
     );
 
@@ -175,16 +158,6 @@ sub set {
     my $err = $!;
     unlink $temp_path;
     Carp::croak( "Unable to rename $temp_path to $path: $err" );
-}
-
-sub _get {
-    my ( undef, $path ) = @_;	# Invocant unused
-    my $fh;
-    open $fh, '<', $path	## no critic (RequireBriefOpen,RequireCheckedOpen)
-	and return Storable::fd_retrieve( $fh );
-    $! == ENOENT
-	and return undef;	## no critic (ProhibitExplicitReturnUndef)
-    Carp::croak( "Failed to open $path: $!" );
 }
 
 sub _is_valid {
@@ -265,29 +238,14 @@ ancient.
 
 =head1 METHODS
 
-This class supports the following package-private methods:
-
 =head2 new
 
  my $cache = Test::Pod::LinkCheck::Lite::Cache::File->new();
 
-This static method instantiates the cache object. It takes the following
-arguments as name/value pairs:
+This static method instantiates the cache object. It adds the following
+arguments (as name/value pairs) to those of the superclass:
 
 =over
-
-=item expires_in
-
-This argument is the number of seconds after which the cache entry is
-expired. The default is one day. B<Note> that this implementation does
-not support per-entry expiration times.
-
-=item namespace
-
-This argument specifies a name space in which this object's entries
-reside, Unlike L<CHI|CHI>, this must be a valid file name element, and
-must begin with an alphanumeric. The default is C<'Default'>, oddly
-enough.
 
 =item root_dir
 
@@ -297,56 +255,6 @@ C<File::Spec->tmpdir()>. B<Note> that this default is incompatible with
 L<CHI|CHI>.
 
 =back
-
-An exception will be thrown if any other arguments are specified.
-
-=head2 clear
-
- $cache->clear();
-
-This method clears the name space.
-
-=head2 expire
-
- $cache->expire( $key );
-
-This method expires the given key. It is not an error to expire a
-non-existent key.
-
-=head2 get
-
- my $value = $cache->get( $key );
-
-This method returns the value associated with the given key. If there is
-none, or if it is expired, nothing is returned.
-
-=head2 get_keys
-
- print "$_\n" for sort $cache->get_keys();
-
-This method returns all keys in the cache, including the keys of expired
-items. B<Note> that these will probably not be the original keys, for
-the cache entries but can still be used to retrieve them.
-
-=head2 purge
-
- $cache->purge();
-
-This method removes all expired entries from the cache.
-
-=head2 remove
-
- $cache->remove( $key );
-
-This method removes the given key from the cache. It is not an error if
-the key is not in the cache.
-
-=head2 set
-
- $cache->set( $key, $value );
-
-This method adds the given value to the cache under the given key. If
-the key is already present in the cache, its value is replaced.
 
 =head1 SEE ALSO
 

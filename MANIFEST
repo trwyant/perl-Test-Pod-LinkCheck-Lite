@@ -2,13 +2,14 @@ Build.PL
 Changes
 CONTRIBUTING
 eg/manpath.PL
+eg/README
 eg/test-pod-links
 eg/url-cache
-eg/README
 inc/Mock/HTTP/Tiny.pm
 inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
 lib/Test/Pod/LinkCheck/Lite.pm
+lib/Test/Pod/LinkCheck/Lite/Cache.pm
 lib/Test/Pod/LinkCheck/Lite/Cache/File.pm
 lib/Test/Pod/LinkCheck/Lite/CacheObject.pm
 LICENSE-Artistic

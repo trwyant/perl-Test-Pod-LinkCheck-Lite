@@ -11,6 +11,8 @@ our $VERSION = '0.014_004';
 
 sub __new {
     my ( $class, $arg ) = @_;
+    defined $arg
+	or return $arg;
     return bless $arg, $class;
 }
 
