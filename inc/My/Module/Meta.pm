@@ -87,7 +87,7 @@ sub module_name {
 sub no_index {
     return +{
 	directory	=> [ qw{ inc t xt } ],
-	package		=> [ qw{ My_Parser } ],
+	package		=> [ qw{ My_MemCache My_Parser } ],
     };
 }
 
@@ -141,7 +141,7 @@ sub provides {
 }
 
 sub optional_modules {
-    return ( qw{ IO::Socket::SSL Net::SSLeay } );
+    return ( qw{ Cache::FileCache IO::Socket::SSL Net::SSLeay } );
 }
 
 sub release_status { 'unstable' }
@@ -153,11 +153,8 @@ sub requires {
     return +{
 	'B::Keywords'	=> 0,
 	'Carp'		=> 0,
-	'Digest::MD5'	=> 0,
-	'Errno'		=> 0,
 	'Exporter'	=> 0,
 	'File::Find'	=> 0,
-	'File::Path'	=> 0,
 	'File::Spec'	=> 0,
 	'File::stat'	=> 0,
 	'HTTP::Tiny'	=> 0,
@@ -170,7 +167,6 @@ sub requires {
 	'Storable'	=> 0,
 	'Test::Builder'	=> 0,
 	constant	=> 0,
-	parent		=> 0,
 	strict		=> 0,
 	utf8		=> 0,
 	warnings	=> 0,

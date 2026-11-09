@@ -21,7 +21,6 @@ use Pod::Simple ();		# Core since 5.9.3
 use Pod::Simple::LinkSection;	# Core since 5.9.3 (part of Pod::Simple)
 use Storable ();		# Core since 5.7.3
 use Test::Builder ();		# Core since 5.6.2
-use Test::Pod::LinkCheck::Lite::Cache::File;
 
 our $VERSION = '0.014_004';
 
@@ -192,6 +191,11 @@ sub _default_module_index {
     return \@handlers;
 }
 
+sub _default_persist_url_response_cache {
+    local $@ = undef;
+    return eval { require Cache::FileCache; 1 } || 0;
+}
+
 sub _default_prohibit_redirect {
     return 0;
 }
@@ -308,6 +312,15 @@ sub _init_module_index {
     }
     $self->{$name} = \@val;
     $self->{"_$name"} = \@handlers;
+    return;
+}
+
+sub _init_persist_url_response_cache {
+    my ( $self, $name, $value ) = @_;
+    $value
+	and not _default_persist_url_response_cache()
+	and require Cache::FileCache;	# For the exception
+    $self->{$name} = $value ? 1 : 0;
     return;
 }
 
@@ -457,6 +470,8 @@ ${leader}'ignore_url' is $ignore_url
 ${leader}'man' is @{[ _Boolean( $self->man() ) ]}
 ${leader}'module_index' is ( @{[ join ', ', map { "'$_'" }
     $self->module_index() ]} )
+${leader}'persist_url_response_cache' is @{[ _Boolean(
+    $self->persist_url_response_cache() ) ] }
 ${leader}'prohibit_redirect' is @{[ _Boolean( $self->prohibit_redirect() ) ]}
 ${leader}'require_installed' is @{[ _Boolean( $self->require_installed() ) ]}
 ${leader}'skip_server_errors' is @{[ _Boolean( $self->skip_server_errors() ) ]}
@@ -518,6 +533,11 @@ sub module_index {
 	and return @{ $self->{module_index} };
     local $" = ',';
     return "@{ $self->{module_index} }";
+}
+
+sub persist_url_response_cache {
+    my ( $self ) = @_;
+    return $self->{persist_url_response_cache}
 }
 
 sub pod_file_ok {
@@ -968,17 +988,23 @@ sub _initialize_url_cache {
     my $ua = $self->_user_agent();
     if ( $self->cache_url_response() ) {
 	my $expires_in = 86_400;	# One day
-	$cache = Test::Pod::LinkCheck::Lite::Cache::File->new(
-	    root_dir	=> __url_cache_path(),
-	    expires_in	=> $expires_in,
-	);
+	if ( $self->persist_url_response_cache() ) {
+	    $cache = Cache::FileCache->new( {
+		    auto_purge_interval	=> $expires_in,
+		    cache_root		=> __url_cache_path(),
+		    default_expires_in	=> $expires_in,
+		},
+	    );
+	} else {
+	    $cache = My_MemCache->new();
+	}
 	$head = sub {
 	    my ( $url ) = @_;
 	    my $data;
 	    $data = $cache->get( $url )
 		and return $data;
 	    $data = $ua->head( $url );
-	    $cache->set( $url, $data );
+	    $cache->set( $url, $data, $expires_in );
 	    return $data;
 	};
     } else {
@@ -1108,6 +1134,51 @@ sub _is_perl_file {
 	$nest++ while $ignore{ caller( $nest ) || '' };
 	return $nest;
     }
+}
+
+package My_MemCache;		## no critic (ProhibitMultiplePackages)
+
+sub new {
+    my ( $class ) = @_;
+    return bless {}, $class;
+}
+
+sub clear {
+    my ( $self ) = @_;
+    %{ $self } = ();
+    return;
+}
+
+sub get {
+    my ( $self, $key ) = @_;
+    my $obj = $self->{$key}
+	or return;
+    $obj->{expires_at} < time
+	and return $obj->{data};
+    delete $self->{$key};
+    return;
+}
+
+sub set {
+    my ( $self, $key, $data, $expires_in ) = @_;
+    defined $expires_in
+	or $expires_in = 86_400;	# One day
+    $self->{$key} = {
+	data	=> $data,
+	expires_at	=> time + $expires_in,
+	key	=> $key,
+    };
+    return;
+}
+
+sub purge {
+    my ( $self ) = @_;
+    my $now = time;
+    foreach my $key ( keys %{ $self } ) {
+	$self->{$key}{expires_at} < $now
+	    and delete $self->{$key};
+    }
+    return;
 }
 
 package My_Parser;		## no critic (ProhibitMultiplePackages)
@@ -1529,6 +1600,26 @@ indices.
 
 By default all indices are considered.
 
+=item persist_url_response_cache
+
+Added in version 0.015.
+
+This Boolean argument controls whether the URL response cache survives
+an individual C<Test::Pod::LinkCheck::Lite> object. It is ignored unless
+L<cache_url_response|/cache_url_response> is asserted. If this argument
+is false, the cache is local to the test object, and does not survive
+its destruction.
+
+Currently, persistence is delegated to
+L<Cache::FileCache|Cache::FileCache>. The default is true if this can be
+loaded, and false if it can not. This was chosen over L<CHI|CHI> as
+being the lighter-weight cache implementation.
+
+B<Note> that L<Cache::FileCache|Cache::FileCache> is not a requirement
+for this module. If you set this attribute true and 
+L<Cache::FileCache|Cache::FileCache> can not be loaded, an exception
+will occur.
+
 =item prohibit_redirect
 
 Added in version 0.004.
@@ -1685,6 +1776,14 @@ This method returns the value of the C<'man'> attribute.
 
 This method returns the value of the C<'module_index'> attribute. If
 called in scalar context it returns a comma-delimited string.
+
+=head2 persist_url_response_cache
+
+ $t->persist_url_response_cache()
+   and say 'URL response cache (if any) will persist';
+
+This method returns the value of the C<'persist_url_response_cache'>
+attribute.
 
 =head2 pod_file_ok
 

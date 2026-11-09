@@ -9,9 +9,6 @@ inc/Mock/HTTP/Tiny.pm
 inc/My/Module/Build.pm
 inc/My/Module/Meta.pm
 lib/Test/Pod/LinkCheck/Lite.pm
-lib/Test/Pod/LinkCheck/Lite/Cache.pm
-lib/Test/Pod/LinkCheck/Lite/Cache/File.pm
-lib/Test/Pod/LinkCheck/Lite/CacheObject.pm
 LICENSE-Artistic
 LICENSE-GPL
 Makefile.PL
@@ -21,7 +18,6 @@ META.yml
 README
 SECURITY
 t/basic.t
-t/cache_file.t
 t/data/_cpan/Metadata
 t/data/_http/status
 t/data/_lib/mu.pod

@@ -12,9 +12,15 @@ use My::Module::Meta;
 
 diag 'Modules required for author testing';
 
-note 'This list is just the optional modules, and needs filling out.';
+note 'Optional modules.';
 
 require_ok $_ for My::Module::Meta->optional_modules();
+
+note 'Author testing modules. This list needs filling out.';
+
+require_ok $_ for qw{
+    Test::Prereq::Meta
+};
 
 done_testing;
 

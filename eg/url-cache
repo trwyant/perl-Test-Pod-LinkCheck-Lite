@@ -5,6 +5,7 @@ use 5.008;
 use strict;
 use warnings;
 
+use Cache::FileCache;		# Not core
 use Digest::MD5 qw{ md5_hex };
 use File::Path qw{ rmtree };
 use File::Spec;			# Core since 5.4.5
@@ -12,7 +13,7 @@ use File::stat;			# Core since 5.4
 use HTTP::Tiny;			# Core since 5.13.9
 use Getopt::Long 2.33 qw{ :config auto_version };
 use Pod::Usage;
-use Test::Pod::LinkCheck::Lite::Cache::File;
+use Test::Pod::LinkCheck::Lite;
 use YAML;			# Not core
 
 our $VERSION = '0.014_004';
@@ -26,11 +27,13 @@ GetOptions( \%opt,
 my $code = __PACKAGE__->can( "cmd_$ARGV[0]" )
     or die "Unknown command '$ARGV[0]'";
 
-my $cache;
-{
-    package Test::Pod::LinkCheck::Lite;
-    $cache = Test::Pod::LinkCheck::Lite::Cache::File->new();
-}
+my $cache_path = Test::Pod::LinkCheck::Lite::__url_cache_path();
+my $cache = Cache::FileCache->new( {
+	auto_purge_interval	=> 86_400,
+	cache_root		=> $cache_path,
+	default_expires_in	=> 86_400,
+    },
+);
 
 $code->( $cache, @ARGV );
 
@@ -46,21 +49,12 @@ sub cmd_dump {
     return;
 }
 
-sub cmd_expire {
-    my ( $cache, undef, $key ) = @_;
-    $cache->expire( $key );
-    return;
-}
-
 sub cmd_get {
     my ( $cache, undef, $key ) = @_;
-    my $obj;
-    if ( my $value = $cache->get( $key, obj_ref => \$obj ) ) {
+    if ( my $value = $cache->get( $key ) ) {
 	print "$key ", Dump( $value );
-    } elsif ( $obj ) {
-	print "$key is expired\n";
     } else {
-	print "$key is not in the cache\n";
+	print "$key is expired, or not in the cache\n";
     }
     return;
 }
@@ -84,10 +78,8 @@ sub cmd_list {
     my ( $cache ) = @_;
     my @keys;
     foreach ( $cache->get_keys() ) {
-	my $obj;
-	$cache->get( $_, obj_ref => \$obj );
-	$obj
-	    and push @keys, $obj->key();
+	$cache->get( $_ )
+	    and push @keys, $_;
     }
     print "$_\n" for sort @keys;
     return;
@@ -95,13 +87,12 @@ sub cmd_list {
 
 sub cmd_obliterate {
     my ( $cache ) = @_;
-    rmtree( $cache->{root_dir} );
+    rmtree( $cache_path );
     return;
 }
 
 sub cmd_path {
-    my ( $cache ) = @_;
-    print $cache->{root_dir}, "\n";
+    print "$cache_path\n";
     return;
 }
 
@@ -156,10 +147,6 @@ This sub-command removes all entries from the cache.
 =item dump
 
 This sub-command dumps the cache object.
-
-=item expire E<lt>urlE<gt>
-
-This sub-command expires the entry for the given URL, if any.
 
 =item get E<lt>urlE<gt>
 

@@ -4,13 +4,13 @@ use strict;
 use warnings;
 
 use Test::More 0.88;	# Because of done_testing();
+use Test::Prereq::Meta;
 
-eval {
-    require Test::Prereq::Meta;
-    1;
-} or plan skip_all => 'Test::Prereq::Meta not available';
+use lib qw{ inc };
+use My::Module::Meta;
 
 my $tpm = Test::Prereq::Meta->new(
+    accept	=> [ My::Module::Meta->optional_modules() ],
 );
 
 $tpm->all_prereq_ok();
