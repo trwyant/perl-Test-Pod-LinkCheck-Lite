@@ -15,7 +15,7 @@ use Pod::Usage;
 use Test::Pod::LinkCheck::Lite qw{ :const };
 use YAML;			# Not core
 
-our $VERSION = '0.014_004';
+our $VERSION = '0.014_005';
 
 my %opt;
 my %new_arg;
