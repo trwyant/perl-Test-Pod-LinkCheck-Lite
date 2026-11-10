@@ -6,51 +6,53 @@ use strict;
 use warnings;
 
 use Cache::FileCache;		# Not core
-use Digest::MD5 qw{ md5_hex };
-use File::Path qw{ rmtree };
+use File::Path qw{ rmtree };	# Core since 5.001
 use File::Spec;			# Core since 5.4.5
 use File::stat;			# Core since 5.4
 use HTTP::Tiny;			# Core since 5.13.9
 use Getopt::Long 2.33 qw{ :config auto_version };
 use Pod::Usage;
-use Test::Pod::LinkCheck::Lite;
+use Test::Pod::LinkCheck::Lite qw{ :const };
 use YAML;			# Not core
 
 our $VERSION = '0.014_004';
 
 my %opt;
+my %new_arg;
 
 GetOptions( \%opt,
+    default	=> sub { delete $new_arg{cache_location} },
+    'location=s' => sub { $new_arg{$_[0]} = $_[1] },
+    memory	=> sub { $new_arg{cache_location} = CACHE_LOC_MEMORY },
+    temp	=> sub { $new_arg{cache_location} = CACHE_LOC_TEMP },
+    user	=> sub { $new_arg{cache_location} = CACHE_LOC_USER },
     help => sub { pod2usage( { -verbose => 2 } ) },
 ) and @ARGV or pod2usage( { -verbose => 0 } );
 
 my $code = __PACKAGE__->can( "cmd_$ARGV[0]" )
     or die "Unknown command '$ARGV[0]'";
 
-my $cache_path = Test::Pod::LinkCheck::Lite::__url_cache_path();
-my $cache = Cache::FileCache->new( {
-	auto_purge_interval	=> 86_400,
-	cache_root		=> $cache_path,
-	default_expires_in	=> 86_400,
-    },
-);
+my $t = Test::Pod::LinkCheck::Lite->new( %new_arg );
+my $cache_path = $t->cache_location();
+my $cache = $t->__cache_object();
 
-$code->( $cache, @ARGV );
+$code->( @ARGV );
+
+exit;
 
 sub cmd_clear {
-    my ( $cache ) = @_;
     $cache->clear();
     return;
 }
 
 sub cmd_dump {
-    my ( $cache ) = @_;
-    print Dump( $cache );
+    my ( undef, $key ) = @_;
+    print Dump( defined( $key ) ? $cache->get_object( $key ) : $cache );
     return;
 }
 
 sub cmd_get {
-    my ( $cache, undef, $key ) = @_;
+    my ( undef, $key ) = @_;
     if ( my $value = $cache->get( $key ) ) {
 	print "$key ", Dump( $value );
     } else {
@@ -62,7 +64,7 @@ sub cmd_get {
 {
     my $ua;
     sub cmd_head {
-	my ( $cache, undef, $url ) = @_;
+	my ( undef, $url ) = @_;
 	my $resp;
 	unless ( $resp = $cache->get( $url ) ) {
 	    $ua ||= HTTP::Tiny->new();
@@ -75,7 +77,6 @@ sub cmd_get {
 }
 
 sub cmd_list {
-    my ( $cache ) = @_;
     my @keys;
     foreach ( $cache->get_keys() ) {
 	$cache->get( $_ )
@@ -86,7 +87,8 @@ sub cmd_list {
 }
 
 sub cmd_obliterate {
-    my ( $cache ) = @_;
+    ref $cache_path
+	and return;
     rmtree( $cache_path );
     return;
 }
@@ -97,13 +99,12 @@ sub cmd_path {
 }
 
 sub cmd_purge {
-    my ( $cache ) = @_;
     $cache->purge();
     return;
 }
 
 sub cmd_remove {
-    my ( $cache, undef, $key ) = @_;
+    my ( undef, $key ) = @_;
     $cache->remove( $key );
     return;
 }
@@ -112,7 +113,7 @@ __END__
 
 =head1 TITLE
 
-url-cache - Manipulate the persistent URL cache.
+url-cache - Manipulate the URL cache.
 
 =head1 SYNOPSIS
 
@@ -122,10 +123,34 @@ url-cache - Manipulate the persistent URL cache.
 
 =head1 OPTIONS
 
+=head2 --default
+
+This option puts the cache in the default location.
+
+=head2 --location
+
+ --location ~/fubar
+
+This option puts the cache in the specified location.
+
 =head2 --help
 
 This option displays the documentation for this script. The script then
 exits.
+
+=head2 --memory
+
+This option puts the cache in memory. This is relatively useless, since
+the cache does not persist beyond the execution of this script.
+
+=head2 --temp
+
+This option puts the cache in C<< File::Spec->tempdir() >>.
+
+=head2 --user
+
+This option puts the cache in
+C<< File::HomeDir->my_dist_config( 'Test-Pod-LinkCheck-Lite' ) >>.
 
 =head2 --version
 
@@ -133,10 +158,16 @@ This option displays the version of this script. The script then exits.
 
 =head1 DETAILS
 
-This Perl script manipulates the persistent URL status cache. The action
-taken depends on the command arguments. This first such is the name of
-the sub-command, followed by arguments to the sub-command, if any. The
-sub-commands currently implemented are:
+This Perl script manipulates the URL status cache.
+
+The location of the cache is specified by the L<--default|/--default>,
+L<--location|/--location>, L<--memory|/--memory>, L<--temp|/--temp>, or
+L<--user|/--user> options, If more than one of these is specified, the
+rightmost wins.
+
+The action taken depends on the command arguments. This first such is
+the name of the sub-command, followed by arguments to the sub-command,
+if any. The sub-commands currently implemented are:
 
 =over
 
@@ -146,7 +177,8 @@ This sub-command removes all entries from the cache.
 
 =item dump
 
-This sub-command dumps the cache object.
+If given a E<lt>urlE<gt> argument, the object for that URL is dumped.
+Otherwise the cache object is dumped.
 
 =item get E<lt>urlE<gt>
 
@@ -162,7 +194,7 @@ L<YAML|YAML>.
 
 =item list
 
-This sub-command lists all URLs in the cache, whether or not expired.
+This sub-command lists all URLs in the cache.
 
 =item obliterate
 

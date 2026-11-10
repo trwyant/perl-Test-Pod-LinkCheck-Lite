@@ -28,12 +28,64 @@ our @ISA = qw{ Exporter };
 
 our @EXPORT_OK = qw{
     ALLOW_REDIRECT_TO_INDEX
+    CACHE_LOC_MEMORY
+    CACHE_LOC_TEMP
+    CACHE_LOC_USER
     MAYBE_IGNORE_GITHUB
 };
 
 our %EXPORT_TAGS = (
     const	=> [ grep { m/ \A [[:upper:]_]+ \z /smx } @EXPORT_OK ],
 );
+
+{
+    # This is here so it is available for manifest constants
+    my %checked;
+
+    sub _has_usable {
+	my ( $module, $version ) = @_;
+
+	unless ( exists $checked{$module} ) {
+	    local $@ = undef;
+	    ( my $fn = "$module.pm" ) =~ s| :: |/|smxg;
+	    eval {
+		require $fn;
+		$checked{$module} = 1;
+		1;
+	    } or do {
+		$checked{$module} = 0;
+	    };
+	}
+
+	$checked{$module}
+	    or return;
+
+	if ( defined $version ) {
+	    my $rslt = 1;
+	    local $SIG{__DIE__} = sub { $rslt = undef };
+	    $module->VERSION( $version );
+	    return $rslt;
+	}
+
+	return 1;
+    }
+}
+
+{
+
+    package My_Special_Cache_Loc;	## no critic (ProhibitMultiplePackages)
+    # This is here so I can make constants
+    use overload	# Core since 5.002
+	'""'	=> \&qq,
+	;
+
+    sub new {
+	my ( $class, $value ) = @_;
+	return bless \$value, $class;
+    }
+
+    sub qq :method { return "\\'${$_[0]}'" }; ## no critic (ProhibitBuiltinHomonyms)
+}
 
 use constant ON_DARWIN		=> 'darwin' eq $^O;
 use constant ON_VMS		=> 'VMS' eq $^O;
@@ -51,6 +103,13 @@ use constant SCALAR_REF	=> ref \0;
 # 'pod'. We conditionalize fix-up code on this constant so that, if the
 # fix-up is not needed, the optimizer ditches it.
 use constant NEED_MAN_FIX	=> Pod::Simple->VERSION lt '3.24';
+
+# The usability of File::HomeDir gets made into a manifest constant for
+# similar reasons to the above.
+use constant HAS_USABLE_FILE_HOMEDIR => _has_usable( 'File::HomeDir', 0.52 );
+
+use constant HAS_USABLE_CACHE_FILECACHE => _has_usable(
+    'Cache::FileCache' );
 
 use constant ALLOW_REDIRECT_TO_INDEX => sub {
     my ( undef, $resp, $url ) = @_;
@@ -80,6 +139,17 @@ use constant MAYBE_IGNORE_GITHUB	=> sub {
     }
     return 1;
 };
+
+use constant MY_DIST_NAME	=> do {
+    ( my $dist = __PACKAGE__ ) =~ s/::/-/g;
+    $dist;
+};
+
+use constant _CACHE_LOC_SPECIAL_CLASS => 'My_Special_Cache_Loc';
+use constant CACHE_LOC_MEMORY	=> _CACHE_LOC_SPECIAL_CLASS->new( 'memory' );
+use constant CACHE_LOC_TEMP	=>
+    File::Spec->catdir( File::Spec->tmpdir(), MY_DIST_NAME );
+use constant CACHE_LOC_USER	=> _CACHE_LOC_SPECIAL_CLASS->new( 'user' );
 
 use constant USER_AGENT_CLASS	=> 'HTTP::Tiny';
 
@@ -128,6 +198,11 @@ sub _default_allow_man_spaces {
 
 sub _default_check_external_sections {
     return 1;
+}
+
+sub _default_cache_location {
+    return HAS_USABLE_CACHE_FILECACHE ? CACHE_LOC_TEMP :
+    CACHE_LOC_MEMORY;
 }
 
 sub _default_cache_url_response {
@@ -191,11 +266,6 @@ sub _default_module_index {
     return \@handlers;
 }
 
-sub _default_persist_url_response_cache {
-    local $@ = undef;
-    return eval { require Cache::FileCache; 1 } || 0;
-}
-
 sub _default_prohibit_redirect {
     return 0;
 }
@@ -222,6 +292,52 @@ sub _init_allow_man_spaces {
     my ( $self, $name, $value ) = @_;
     $self->{$name} = $value ? 1 : 0;
     return;
+}
+
+{
+    my $user_loc;
+    my %valid = (
+	CACHE_LOC_MEMORY->qq, sub {
+	    my ( undef, %arg ) = @_;
+	    return My_MemCache->new( %arg );
+	},
+	CACHE_LOC_USER->qq,, sub {
+	    my ( $self, %arg ) = @_;
+	    unless ( defined $user_loc ) {
+		$user_loc = HAS_USABLE_FILE_HOMEDIR ?
+		    File::HomeDir->my_dist_data( MY_DIST_NAME, { create => 1 } ) :
+		-d "$ENV{HOME}/.local" ?
+		    File::Spec->catdir( $ENV{HOME}, qw{ .local share Perl dist },
+			MY_DIST_NAME ) :
+		    File::Spec->catdir( $ENV{HOME}, qw{ .perl dist },
+			MY_DIST_NAME );
+		$self->{cache_location} = $user_loc;
+	    }
+	    $arg{cache_root} = $user_loc;
+	    return Cache::FileCache->new( \%arg );
+	},
+    );
+    sub _init_cache_location {
+	my ( $self, $name, $value ) = @_;
+	if ( ref( $value ) eq _CACHE_LOC_SPECIAL_CLASS ) {
+	    my $code = $valid{$value}
+		or Carp::croak( "Invalid cache location \\'$value'" );
+	    $self->{"_$name"} = $code;
+	} elsif ( ref $value ) {
+	    Carp::croak( "Invalid cache location $value" );
+	} else {
+	    $self->{"_$name"} = sub {
+		my ( $self, %arg ) = @_;
+		# Not $self->cache_location() here, or we get an
+		# infinite recursion.
+		defined $arg{cache_root}
+		    or $arg{cache_root} = $self->{cache_location};
+		return Cache::FileCache->new( \%arg );
+	    };
+	}
+	$self->{$name} = $value;
+	return;
+    }
 }
 
 sub _init_cache_url_response {
@@ -312,15 +428,6 @@ sub _init_module_index {
     }
     $self->{$name} = \@val;
     $self->{"_$name"} = \@handlers;
-    return;
-}
-
-sub _init_persist_url_response_cache {
-    my ( $self, $name, $value ) = @_;
-    $value
-	and not _default_persist_url_response_cache()
-	and require Cache::FileCache;	# For the exception
-    $self->{$name} = $value ? 1 : 0;
     return;
 }
 
@@ -419,6 +526,12 @@ sub allow_man_spaces {
     return $self->{allow_man_spaces}
 }
 
+sub cache_location {
+    my ( $self ) = @_;
+    $self->{_url_cache} ||= $self->_initialize_url_cache();
+    return $self->{cache_location};
+}
+
 sub cache_url_response {
     my ( $self ) = @_;
     return $self->{cache_url_response}
@@ -441,7 +554,7 @@ sub check_url {
 
 sub clear_url_cache {
     my ( $self ) = @_;
-    my $cache = $self->_cache_object()
+    my $cache = $self->__cache_object()
 	or return;
     $cache->clear();
     return;
@@ -457,10 +570,13 @@ sub configuration {
     my ( $ignore_url ) = $TEST->explain( scalar $self->ignore_url() );
     chomp $ignore_url;
 
+    my $cache_location = $self->cache_location();
+
     return <<"EOD";
 ${leader}'agent' is '@{[ $self->agent() ]}'
 ${leader}'allow_man_spaces' is @{[ _Boolean(
     $self->allow_man_spaces() ) ]}
+${leader}'cache_location' is $cache_location
 ${leader}'cache_url_response' is @{[ _Boolean(
     $self->cache_url_response() ) ]}
 ${leader}'check_external_sections' is @{[ _Boolean(
@@ -470,8 +586,6 @@ ${leader}'ignore_url' is $ignore_url
 ${leader}'man' is @{[ _Boolean( $self->man() ) ]}
 ${leader}'module_index' is ( @{[ join ', ', map { "'$_'" }
     $self->module_index() ]} )
-${leader}'persist_url_response_cache' is @{[ _Boolean(
-    $self->persist_url_response_cache() ) ] }
 ${leader}'prohibit_redirect' is @{[ _Boolean( $self->prohibit_redirect() ) ]}
 ${leader}'require_installed' is @{[ _Boolean( $self->require_installed() ) ]}
 ${leader}'skip_server_errors' is @{[ _Boolean( $self->skip_server_errors() ) ]}
@@ -535,11 +649,6 @@ sub module_index {
     return "@{ $self->{module_index} }";
 }
 
-sub persist_url_response_cache {
-    my ( $self ) = @_;
-    return $self->{persist_url_response_cache}
-}
-
 sub pod_file_ok {
     my ( $self, $file ) = @_;
 
@@ -595,7 +704,7 @@ sub prohibit_redirect {
 
 sub purge_url_cache {
     my ( $self ) = @_;
-    my $cache = $self->_cache_object()
+    my $cache = $self->__cache_object()
 	or return;
     $cache->purge();
     return;
@@ -912,7 +1021,7 @@ sub _get_module_index_cpan {
     # as of CPAN::HandleConfig version 5.5011.
     my @dir_list;
 
-    if ( _has_usable( 'File::HomeDir', 0.52 ) ) {
+    if ( HAS_USABLE_FILE_HOMEDIR ) {
 	ON_DARWIN
 	    or push @dir_list, File::HomeDir->my_data();
 	push @dir_list, File::HomeDir->my_home();
@@ -951,7 +1060,8 @@ sub _get_module_index_cpan {
     return;
 }
 
-sub _cache_object {
+# Pachage private, for use of tools.
+sub __cache_object {
     my ( $self ) = @_;
     $self->{_url_cache} ||= $self->_initialize_url_cache();
     return $self->{_url_cache}{cache};
@@ -976,35 +1086,24 @@ sub _head {
     return $self->{_url_cache}{head}->( $url );
 }
 
-# Package-private. Exists so that it can be overridden for testing.
-sub __url_cache_path {
-    ( my $dir = __PACKAGE__ ) =~ s/::/_/smxg;
-    return File::Spec->catdir( File::Spec->tmpdir(), $dir );
-}
-
 sub _initialize_url_cache {
     my ( $self ) = @_;
     my ( $cache, $head );
     my $ua = $self->_user_agent();
     if ( $self->cache_url_response() ) {
 	my $expires_in = 86_400;	# One day
-	if ( $self->persist_url_response_cache() ) {
-	    $cache = Cache::FileCache->new( {
-		    auto_purge_interval	=> $expires_in,
-		    cache_root		=> __url_cache_path(),
-		    default_expires_in	=> $expires_in,
-		},
-	    );
-	} else {
-	    $cache = My_MemCache->new();
-	}
+	$cache = $self->{_cache_location}->(
+	    $self,
+	    auto_purge_interval	=> $expires_in,
+	    default_expires_in	=> $expires_in,
+	);
 	$head = sub {
 	    my ( $url ) = @_;
 	    my $data;
 	    $data = $cache->get( $url )
 		and return $data;
 	    $data = $ua->head( $url );
-	    $cache->set( $url, $data, $expires_in );
+	    $cache->set( $url, $data );
 	    return $data;
 	};
     } else {
@@ -1066,38 +1165,6 @@ sub _handle_url {
     }
 }
 
-{
-    my %checked;
-
-    sub _has_usable {
-	my ( $module, $version ) = @_;
-
-	unless ( exists $checked{$module} ) {
-	    local $@ = undef;
-	    ( my $fn = "$module.pm" ) =~ s| :: |/|smxg;
-	    eval {
-		require $fn;
-		$checked{$module} = 1;
-		1;
-	    } or do {
-		$checked{$module} = 0;
-	    };
-	}
-
-	$checked{$module}
-	    or return;
-
-	if ( defined $version ) {
-	    my $rslt = 1;
-	    local $SIG{__DIE__} = sub { $rslt = undef };
-	    $module->VERSION( $version );
-	    return $rslt;
-	}
-
-	return 1;
-    }
-}
-
 sub _is_perl_file {
     my ( undef, $path ) = @_;
     -e $path
@@ -1139,33 +1206,59 @@ sub _is_perl_file {
 package My_MemCache;		## no critic (ProhibitMultiplePackages)
 
 sub new {
-    my ( $class ) = @_;
-    return bless {}, $class;
+    my ( $class, %arg ) = @_;
+    defined $arg{auto_purge_interval}
+	and $arg{_auto_purge_at} = time;
+    defined $arg{default_expires_in}
+	or $arg{default_expires_in} = 86_400;
+    return bless {
+	auto_purge_interval	=> $arg{auto_purge_interval},
+	_auto_purge_at		=> $arg{_auto_purge_at},
+	cache	=> {},
+	default_expires_in	=> $arg{default_expires_in},
+    }, $class;
 }
 
 sub clear {
     my ( $self ) = @_;
-    %{ $self } = ();
+    %{ $self->{cache} } = ();
     return;
 }
 
 sub get {
     my ( $self, $key ) = @_;
-    my $obj = $self->{$key}
+    my $obj = $self->get_object( $key )
 	or return;
     $obj->{expires_at} < time
 	and return $obj->{data};
-    delete $self->{$key};
+    $self->remove( $key );
     return;
+}
+
+sub get_object {
+    my ( $self, $key ) = @_;
+    return $self->{cache}{$key};
+}
+
+sub get_keys {
+    my ( $self ) = @_;
+    return keys %{ $self->{cache} };
 }
 
 sub set {
     my ( $self, $key, $data, $expires_in ) = @_;
+    my $now = time;
+    if ( defined( $self->{_auto_purge_at} ) &&
+	$self->{_auto_purge_at} <= $now )
+    {
+	$self->purge();
+	$self->{_auto_purge_at} = $now + $self->{auto_purge_interval};
+    }
     defined $expires_in
-	or $expires_in = 86_400;	# One day
-    $self->{$key} = {
+	or $expires_in = $self->{default_expires_in};
+    $self->{cache}{$key} = {
 	data	=> $data,
-	expires_at	=> time + $expires_in,
+	expires_at	=> $now + $expires_in,
 	key	=> $key,
     };
     return;
@@ -1174,10 +1267,16 @@ sub set {
 sub purge {
     my ( $self ) = @_;
     my $now = time;
-    foreach my $key ( keys %{ $self } ) {
-	$self->{$key}{expires_at} < $now
-	    and delete $self->{$key};
+    foreach my $key ( keys %{ $self->{cache} } ) {
+	$self->{cache}{$key}{expires_at} < $now
+	    and delete $self->{cache}{$key};
     }
+    return;
+}
+
+sub remove {
+    my ( $self, $key ) = @_;
+    delete $self->{cache}{$key};
     return;
 }
 
@@ -1488,6 +1587,27 @@ arguments on spaces.
 
 The default is false.
 
+=item cache_location
+
+Added in version 0.015.
+
+This argument gives the location of the cache. It is ignored unless
+L<cache_url_response|/cache_url_response> is true.
+
+Normally this is the path to the directory used for the cache. The
+C<CACHE_LOC_*> manifest constants are provided as a convenience.
+
+Currently, persistence is delegated to
+L<Cache::FileCache|Cache::FileCache>. The default is true if this can be
+loaded, and false if it can not. This was chosen over L<CHI|CHI> as
+being the lighter-weight cache implementation.
+
+B<Note> that L<Cache::FileCache|Cache::FileCache> is not a requirement
+for this module. If you set this attribute to anything other than
+L<CACHE_LOC_MEMORY|/CACHE_LOC_MEMORY> and
+L<Cache::FileCache|Cache::FileCache> can not be loaded, an exception
+will occur.
+
 =item cache_url_response
 
 This Boolean argument is set true to cache the responses from URL links.
@@ -1600,25 +1720,6 @@ indices.
 
 By default all indices are considered.
 
-=item persist_url_response_cache
-
-Added in version 0.015.
-
-This Boolean argument controls whether the URL response cache survives
-an individual C<Test::Pod::LinkCheck::Lite> object. It is ignored unless
-L<cache_url_response|/cache_url_response> is asserted. If this argument
-is false, the cache is local to the test object, and does not survive
-its destruction.
-
-Currently, persistence is delegated to
-L<Cache::FileCache|Cache::FileCache>. The default is true if this can be
-loaded, and false if it can not. This was chosen over L<CHI|CHI> as
-being the lighter-weight cache implementation.
-
-B<Note> that L<Cache::FileCache|Cache::FileCache> is not a requirement
-for this module. If you set this attribute true and 
-L<Cache::FileCache|Cache::FileCache> can not be loaded, an exception
-will occur.
 
 =item prohibit_redirect
 
@@ -1853,6 +1954,35 @@ This mess exists because of my bias that old-style redirection to an
 index is a different beast than indirection in general, and ought to be
 allowed. If you disagree you can ignore this functionality, or
 re-implement to suit yourself.
+
+=head2 CACHE_LOC_MEMORY
+
+Added in version 0.015.
+
+This manifest constant is intended to be specified as a value for
+L<cache_location|/cache_location>. It requests that a memory cache be
+used. This cache will not survive object destruction.
+
+=head2 CACHE_LOC_TEMP
+
+Added in version 0.015.
+
+This manifest constant is intended to be specified as a value for
+L<cache_location|/cache_location>. It requests that the cache be placed
+in the directory specified by C<< File::Spec->tempfile() >>.
+
+=head2 CACHE_LOC_USER
+
+Added in version 0.015.
+
+This manifest constant is intended to be specified as a value for
+L<cache_location|/cache_location>. If a working
+L<File::HomeDir|File::HomeDir> is installed the cache goes in
+C<< File::HomeDir->my_dist_data( 'Test-Pod-LinkCheck-Lite' ) >>.
+Otherwise it is placed more or less where it would go under a U**x-like
+system if L<File::HomeDir|File::HomeDir> were available.
+
+I<Caveat user,>, especially users of VMS and Windows.
 
 =head2 MAYBE_IGNORE_GITHUB
 

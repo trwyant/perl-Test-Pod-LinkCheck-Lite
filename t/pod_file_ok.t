@@ -52,13 +52,9 @@ BEGIN {
 }
 
 {
-    my $tempdir = tempdir( CLEANUP => 1 );
     no warnings qw{ redefine };
     *Test::Pod::LinkCheck::Lite::__dot_cpan = sub {
 	return '_cpan';
-    };
-    *Test::Pod::LinkCheck::Lite::__url_cache_path = sub {
-	return $tempdir;
     };
 }
 
@@ -512,10 +508,21 @@ sub Boolean {
     return $arg ? 'true' : 'false';
 }
 
-sub my_new {
-    my $t = Test::Pod::LinkCheck::Lite->new( @_ );
-    $t->clear_url_cache();
-    return $t;
+{
+    my $cache_loc;
+    sub my_new {
+	defined $cache_loc
+	    or $cache_loc = Test::Pod::LinkCheck::Lite->
+		HAS_USABLE_CACHE_FILECACHE ?
+		tempdir( CLEANUP => 1 ) :
+		CACHE_LOC_MEMORY;
+	my $t = Test::Pod::LinkCheck::Lite->new(
+	    cache_location	=> $cache_loc,
+	    @_,
+	);
+	$t->clear_url_cache();
+	return $t;
+    }
 }
 
 1;
