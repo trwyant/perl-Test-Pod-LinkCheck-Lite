@@ -1,3 +1,6 @@
+0.014_006	2026-11-11	T. R. Wyant
+    Remove ::Cache::File from t/basic.t.
+
 0.014_005	2026-11-10	T. R. Wyant
     Ditch attribute persist_url_response_cache in favor of
     cache_location.
